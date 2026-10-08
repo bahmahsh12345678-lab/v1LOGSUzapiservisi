@@ -36,7 +36,7 @@ body::before{content:"";position:fixed;inset:-50%;background:radial-gradient(cir
 .key-actions{display:flex;gap:8px;flex-wrap:wrap}
 .key-btn{padding:8px 14px;border-radius:8px;font-size:.65rem;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:6px;transition:all .3s}
 .key-btn-primary{background:linear-gradient(135deg,#7a5cff,#5b3fd9);color:#fff;box-shadow:0 8px 20px -8px rgba(122,92,255,.6)}
-.key-btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 25px -8px rgba(122,92,255,.8)}
+.key-btn-primary:hover{transform:translateY(-2px)}
 .key-btn-primary:disabled{opacity:.6;cursor:not-allowed}
 .key-btn-secondary{background:transparent;color:#888;border:1px solid #1f1f1f}
 .key-btn-secondary:hover{background:#141414;color:#fff;border-color:#3a3a3a}
@@ -50,19 +50,23 @@ body::before{content:"";position:fixed;inset:-50%;background:radial-gradient(cir
 .api-card:hover{transform:translateY(-5px);border-color:#3a3a3a;box-shadow:0 20px 40px -15px rgba(122,92,255,.25)}
 .card-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .card-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:#181818;border-radius:7px;color:#aaa;font-size:.7rem;border:1px solid #1a1a1a;flex-shrink:0;transition:all .3s}
-.api-card:hover .card-icon{color:#fff;border-color:#7a5cff;transform:rotate(-8deg) scale(1.1)}
+.api-card:hover .card-icon{color:#fff;border-color:#7a5cff}
 .card-header h3{font-size:.7rem;font-weight:600;color:#e0e0e0}
-.card-header .badge{padding:2px 7px;background:#101010;border:1px solid #1a1a1a;border-radius:8px;font-size:.4rem;font-weight:700;color:#555;margin-left:auto;text-transform:uppercase;letter-spacing:.5px}
+.card-header .badge{padding:2px 7px;background:#101010;border:1px solid #1a1a1a;border-radius:8px;font-size:.4rem;font-weight:700;color:#555;margin-left:auto;text-transform:uppercase}
 .card-header .badge.pro{color:#a78bfa;border-color:#2a2050}
 .card-header .badge.free{color:#22c55e;border-color:#1a2a1a}
-.api-url{font-family:monospace;font-size:.5rem;color:#777;background:#060606;padding:6px 8px;border-radius:6px;border:1px solid #121212;margin-bottom:8px;word-break:break-all;line-height:1.5;transition:all .3s}
-.api-card:hover .api-url{border-color:#2a2a2a;color:#aaa}
+.api-url{font-family:monospace;font-size:.5rem;color:#777;background:#060606;padding:6px 8px;border-radius:6px;border:1px solid #121212;margin-bottom:8px;word-break:break-all;line-height:1.5}
 .card-actions{display:flex;gap:6px}
 .btn{padding:6px 10px;border-radius:6px;font-size:.6rem;font-weight:600;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;border:none;font-family:'Inter',sans-serif;flex:1;transition:all .3s}
 .btn-primary{background:#fff;color:#000}
-.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 20px -8px rgba(255,255,255,.5)}
+.btn-primary:hover{transform:translateY(-2px)}
 .btn-secondary{background:transparent;color:#888;border:1px solid #1f1f1f}
 .btn-secondary:hover{background:#141414;color:#fff;border-color:#3a3a3a}
+.locked{opacity:.4;pointer-events:none;filter:grayscale(1)}
+.lock-overlay{text-align:center;padding:40px 20px;background:#0d0d0d;border:1px dashed #2a2a2a;border-radius:12px;margin-bottom:24px}
+.lock-overlay i{font-size:2rem;color:#7a5cff;margin-bottom:12px}
+.lock-overlay h3{font-size:.9rem;color:#e0e0e0;margin-bottom:6px;font-weight:600}
+.lock-overlay p{font-size:.65rem;color:#666}
 .info-box{background:#0d0d0d;border:1px solid #161616;border-radius:10px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:flex-start;gap:10px}
 .info-box i{color:#7a5cff;font-size:.9rem;margin-top:2px}
 .info-box-content h4{color:#e0e0e0;font-size:.7rem;font-weight:600;margin-bottom:2px}
@@ -104,15 +108,20 @@ body::before{content:"";position:fixed;inset:-50%;background:radial-gradient(cir
     </div>
   </div>
 
-  <div class="api-grid" id="apiGrid">
-    <div class="loading-text"><i class="fas fa-spinner fa-spin"></i> API listesi yükleniyor...</div>
+  <div id="apiWrapper">
+    <div class="lock-overlay" id="lockOverlay">
+      <i class="fas fa-lock"></i>
+      <h3>API'ler Kilitli</h3>
+      <p>Yukarıdaki "YENİ KEY OLUŞTUR" butonuna basarak key alın</p>
+    </div>
+    <div class="api-grid locked" id="apiGrid"></div>
   </div>
 
   <div class="info-box">
     <i class="fas fa-info-circle"></i>
     <div class="info-box-content">
       <h4>Bilgi</h4>
-      <p>Tüm API'ler <strong>ücretsizdir</strong>. Ücret talep edenlere itibar etmeyin. Sorgulamalar size aittir. <strong>@fbxnext</strong></p>
+      <p>Tüm API'ler <strong>ücretsizdir</strong>. Ücret talep edenlere itibar etmeyin. <strong>@fbxnext</strong></p>
     </div>
   </div>
 
@@ -161,6 +170,9 @@ function guncellePanel() {
   const nt = document.getElementById('keyNote');
   const ex = document.getElementById('exampleUrl');
   const gen = document.getElementById('keyGenBtn');
+  const lock = document.getElementById('lockOverlay');
+  const grid = document.getElementById('apiGrid');
+
   if (currentKey) {
     kv.textContent = currentKey;
     kv.classList.remove('empty');
@@ -169,6 +181,8 @@ function guncellePanel() {
     nt.style.display = 'block';
     ex.textContent = window.location.origin + '/api/sorgu?api=tc&tc=11111111110&key=' + currentKey;
     gen.innerHTML = '<i class="fas fa-sync"></i> YENİ KEY OLUŞTUR';
+    lock.style.display = 'none';
+    grid.classList.remove('locked');
   } else {
     kv.textContent = 'Henüz anahtar oluşturulmadı';
     kv.classList.add('empty');
@@ -176,6 +190,8 @@ function guncellePanel() {
     db.style.display = 'none';
     nt.style.display = 'none';
     gen.innerHTML = '<i class="fas fa-plus"></i> YENİ KEY OLUŞTUR';
+    lock.style.display = 'block';
+    grid.classList.add('locked');
   }
 }
 
