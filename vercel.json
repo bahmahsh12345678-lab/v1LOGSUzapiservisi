@@ -1,7 +1,6 @@
 {
   "version": 2,
   "name": "logsuzlar-service",
-  "public": true,
   "functions": {
     "api/*.js": {
       "memory": 512,
@@ -17,8 +16,5 @@
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
       ]
     }
-  ],
-  "rewrites": [
-    { "source": "/api/sorgu", "destination": "/api/sorgu.js" }
   ]
 }
