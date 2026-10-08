@@ -1,5 +1,5 @@
 /**
- * Logsuzlar Service - Vercel Serverless API Proxy
+ * Logsuzlar Service - Vercel API + Key Sistemi
  */
 
 const API_MAP = {
@@ -26,7 +26,44 @@ const API_MAP = {
 };
 
 // ============================================
-// REKLAM TEMİZLEME (AYNEN)
+// KEY STORE (in-memory + dosya kalıcı değil)
+// Vercel serverless için global cache
+// ============================================
+const KEY_CACHE = global.__KEY_CACHE__ || (global.__KEY_CACHE__ = new Map());
+
+function keyGenerate() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const rand = (n) => Array.from({ length: n }, () =>
+    chars[Math.floor(Math.random() * chars.length)]
+  ).join("");
+  return `ZAMPO-${rand(4)}-${rand(4)}-${rand(4)}`;
+}
+
+function keyCreate() {
+  const key = keyGenerate();
+  KEY_CACHE.set(key, {
+    olusturma: new Date().toISOString(),
+    kullanim: 0,
+  });
+  return key;
+}
+
+function keyValid(key) {
+  if (!key) return false;
+  return KEY_CACHE.has(key);
+}
+
+function keyIncrement(key) {
+  if (!key) return;
+  const data = KEY_CACHE.get(key);
+  if (data) {
+    data.kullanim = (data.kullanim || 0) + 1;
+    KEY_CACHE.set(key, data);
+  }
+}
+
+// ============================================
+// REKLAM TEMİZLEME
 // ============================================
 function reklamTemizle(text) {
   if (typeof text !== "string") text = JSON.stringify(text);
@@ -53,7 +90,7 @@ function reklamTemizle(text) {
 }
 
 // ============================================
-// URL OLUŞTUR (AYNEN)
+// URL OLUŞTUR
 // ============================================
 function buildUrl(config, query) {
   const queryParts = {};
@@ -66,38 +103,30 @@ function buildUrl(config, query) {
 }
 
 // ============================================
-// API LİSTESİ
+// API LİSTESİ — SADECE GEÇERLİ KEY İLE
 // ============================================
-function getApiList(origin) {
+function getApiList(origin, key) {
   const list = [];
-  for (const [key, cfg] of Object.entries(API_MAP)) {
-    let demoUrl = origin + "/api/sorgu?api=" + key;
-    for (const [k, v] of Object.entries(cfg.demo || {})) {
-      demoUrl += "&" + k + "=" + encodeURIComponent(v);
+  for (const [k, cfg] of Object.entries(API_MAP)) {
+    let demoUrl = origin + "/api/sorgu?api=" + k;
+    for (const [pk, pv] of Object.entries(cfg.demo || {})) {
+      demoUrl += "&" + pk + "=" + encodeURIComponent(pv);
     }
+    // Key'i URL'ye ekle
+    if (key) demoUrl += "&key=" + encodeURIComponent(key);
+
     list.push({
-      key: key,
+      key: k,
       name: cfg.name,
       icon: cfg.icon,
       badge: cfg.badge,
       params: cfg.params,
       demo: cfg.demo,
       demoUrl: demoUrl,
-      baseUrl: origin + "/api/sorgu?api=" + key,
+      baseUrl: origin + "/api/sorgu?api=" + k,
     });
   }
   return list;
-}
-
-// ============================================
-// KEY OLUŞTURMA (YENİ EKLENDİ - SADECE BU KISIM)
-// ============================================
-function keyOlustur() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const rand = (n) => Array.from({ length: n }, () =>
-    chars[Math.floor(Math.random() * chars.length)]
-  ).join("");
-  return `ZAMPO-${rand(4)}-${rand(4)}-${rand(4)}`;
 }
 
 // ============================================
@@ -114,22 +143,36 @@ export default async function handler(req, res) {
   const origin = proto + "://" + host;
 
   const apiKey = req.query.api;
+  const userKey = req.query.key;
 
-  // ===== KEY OLUŞTURMA (YENİ) =====
+  // ===== KEY OLUŞTUR =====
   if (apiKey === "keyolustur") {
+    const yeniKey = keyCreate();
     return res.status(200).json({
       success: true,
       ok: true,
-      key: keyOlustur(),
+      key: yeniKey,
     });
   }
 
-  // ===== LİSTE =====
+  // ===== KEY KONTROL =====
+  if (apiKey === "keykontrol") {
+    return res.status(200).json({
+      success: true,
+      ok: true,
+      gecerli: keyValid(userKey),
+      key: userKey,
+    });
+  }
+
+  // ===== LİSTE (key ile) =====
   if (apiKey === "list") {
+    // Listeyi key olsa da gösterebiliriz, ama URL'lere key eklenmesi için key lazım
     return res.status(200).json({
       success: true,
       origin: origin,
-      apis: getApiList(origin),
+      keyli: keyValid(userKey),
+      apis: getApiList(origin, userKey),
     });
   }
 
@@ -140,6 +183,18 @@ export default async function handler(req, res) {
       error: "Geçersiz API. Kullanılabilir: " + Object.keys(API_MAP).join(", "),
     });
   }
+
+  // ===== KEY ZORUNLU =====
+  if (!keyValid(userKey)) {
+    return res.status(401).json({
+      success: false,
+      ok: false,
+      error: "Geçersiz veya eksik API key. Lütfen site üzerinden key oluşturun.",
+      cozum: "Siteyi açın ve 'YENİ KEY OLUŞTUR' butonuna tıklayın",
+      ornek: "?api=tc&tc=11111111110&key=ZAMPO-XXXX-XXXX-XXXX",
+    });
+  }
+  keyIncrement(userKey);
 
   const config = API_MAP[apiKey];
 
