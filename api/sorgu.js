@@ -1,6 +1,6 @@
 /**
  * Logsuzlar Service - Vercel API + Telegram Bot (Webhook)
- * Tüm API'ler butonlu, admin panel yok
+ * Sorgu sonuçları TXT dosyası olarak gönderilir
  */
 
 const API_MAP = {
@@ -101,7 +101,73 @@ async function tgGetMe(token) {
 }
 
 // ============================================
-// MENÜ — 20 API + 3 ALT BUTON
+// TXT DOSYASI GÖNDER (MULTIPART MANUEL)
+// ============================================
+async function tgSendDocument(token, chatId, txtContent, filename, caption, keyboard) {
+  try {
+    const boundary = "----FormBoundary" + Math.random().toString(36).substring(2);
+    const encoder = new TextEncoder();
+    
+    const parts = [];
+    
+    // chat_id
+    parts.push(encoder.encode(`--${boundary}\r\n`));
+    parts.push(encoder.encode(`Content-Disposition: form-data; name="chat_id"\r\n\r\n`));
+    parts.push(encoder.encode(`${chatId}\r\n`));
+    
+    // caption
+    if (caption) {
+      parts.push(encoder.encode(`--${boundary}\r\n`));
+      parts.push(encoder.encode(`Content-Disposition: form-data; name="caption"\r\n\r\n`));
+      parts.push(encoder.encode(`${caption}\r\n`));
+      
+      // parse_mode
+      parts.push(encoder.encode(`--${boundary}\r\n`));
+      parts.push(encoder.encode(`Content-Disposition: form-data; name="parse_mode"\r\n\r\n`));
+      parts.push(encoder.encode(`Markdown\r\n`));
+    }
+    
+    // reply_markup
+    if (keyboard) {
+      parts.push(encoder.encode(`--${boundary}\r\n`));
+      parts.push(encoder.encode(`Content-Disposition: form-data; name="reply_markup"\r\n\r\n`));
+      parts.push(encoder.encode(`${JSON.stringify(keyboard)}\r\n`));
+    }
+    
+    // document
+    parts.push(encoder.encode(`--${boundary}\r\n`));
+    parts.push(encoder.encode(`Content-Disposition: form-data; name="document"; filename="${filename}"\r\n`));
+    parts.push(encoder.encode(`Content-Type: text/plain; charset=utf-8\r\n\r\n`));
+    parts.push(encoder.encode(txtContent));
+    parts.push(encoder.encode(`\r\n--${boundary}--\r\n`));
+    
+    // Birleştir
+    let totalLen = 0;
+    for (const p of parts) totalLen += p.length;
+    const buf = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const p of parts) {
+      buf.set(p, offset);
+      offset += p.length;
+    }
+    
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+      method: "POST",
+      headers: {
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      },
+      body: buf,
+    });
+    
+    return await r.json();
+  } catch (e) {
+    console.error("tgSendDocument error:", e);
+    return { ok: false, error: e.message };
+  }
+}
+
+// ============================================
+// MENÜ
 // ============================================
 function botMenu() {
   const entries = Object.entries(API_MAP);
@@ -138,6 +204,7 @@ function karsilamaMesaji() {
     `• 🚀 CPU/RAM kullanmaz\n` +
     `• 🌐 7/24 sınırsız çalışır\n` +
     `• ⚡ Süper hızlı sorgu\n` +
+    `• 📄 Sonuç TXT dosyası\n` +
     `• 🔒 Güvenli & gizli\n\n` +
     `📋 Aşağıdan bir sorgu seç:\n` +
     `👇`
@@ -176,40 +243,70 @@ async function sorguYap(apiKey, query) {
 }
 
 // ============================================
-// SONUÇ FORMATLA
+// SONUÇ GÖNDER (TXT DOSYA)
 // ============================================
-function sonucFormatla(apiKey, sonuc) {
+async function sonucGonder(botToken, chatId, apiKey, sonuc, keyboard) {
   const config = API_MAP[apiKey];
-  let text = `✅ *${config.name}*\n\n`;
+  const zaman = new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
   
-  if (!sonuc) return "❌ Sonuç yok";
-  if (sonuc.error) return `❌ Hata: \`${sonuc.error}\``;
+  // ===== TXT İÇERİĞİ =====
+  let txt = "";
+  txt += "═══════════════════════════════════════════════\n";
+  txt += `  ${config.name}\n`;
+  txt += "═══════════════════════════════════════════════\n";
+  txt += `📅 Tarih  : ${zaman}\n`;
+  txt += `📌 API    : ${apiKey}\n`;
+  txt += `🎯 Servis : Logsuzlar Service\n`;
+  txt += "═══════════════════════════════════════════════\n\n";
   
-  const veri = sonuc.data || sonuc.veri || sonuc;
-  
-  if (Array.isArray(veri)) {
-    text += `📊 *${veri.length} kayıt*\n\n`;
-    for (let i = 0; i < Math.min(veri.length, 10); i++) {
-      text += `*#${i+1}*\n`;
-      for (const [k, v] of Object.entries(veri[i])) {
-        if (v && String(v).trim() && !["auth","auth_alt"].includes(k) && typeof v !== "object") {
-          text += `▪️ ${k}: \`${v}\`\n`;
-        }
-      }
-      text += "\n";
-    }
-    if (veri.length > 10) text += `_...ve ${veri.length-10} kayıt daha_`;
-  } else if (typeof veri === "object") {
-    for (const [k, v] of Object.entries(veri)) {
-      if (v && String(v).trim() && !["auth","auth_alt"].includes(k) && typeof v !== "object") {
-        text += `▪️ *${k}*: \`${v}\`\n`;
-      }
-    }
+  if (sonuc === null || sonuc === undefined) {
+    txt += "❌ Sonuç yok\n";
+  } else if (sonuc.error) {
+    txt += `❌ HATA: ${sonuc.error}\n`;
+  } else {
+    txt += "📄 TAM VERİ:\n\n";
+    txt += JSON.stringify(sonuc, null, 2);
   }
   
-  if (text.length < 30) text += "`" + JSON.stringify(sonuc).slice(0, 3000) + "`";
-  if (text.length > 4000) text = text.slice(0, 3950) + "\n\n_...kısaltıldı_";
-  return text;
+  txt += "\n\n═══════════════════════════════════════════════\n";
+  txt += "✅ Logsuzlar Service\n";
+  txt += "📢 @logsuzlarvip\n";
+  txt += "🆘 @fbxnext\n";
+  txt += "═══════════════════════════════════════════════\n";
+  
+  // ===== ÖZET MESAJ =====
+  let ozet = `✅ *${config.name}*\n\n`;
+  
+  let kayitSayisi = 0;
+  let alanSayisi = 0;
+  
+  if (sonuc && typeof sonuc === "object") {
+    const keys = Object.keys(sonuc).filter(k => 
+      !["auth","auth_alt","developer","version","sürüm","surum","author","yapimci"].includes(k)
+    );
+    alanSayisi = keys.length;
+    
+    const veri = sonuc.data || sonuc.veri || sonuc.sonuc || sonuc.result;
+    if (Array.isArray(veri)) kayitSayisi = veri.length;
+  }
+  
+  ozet += `📊 Alan: \`${alanSayisi}\`\n`;
+  if (kayitSayisi > 0) ozet += `📋 Kayıt: \`${kayitSayisi}\`\n`;
+  ozet += `\n📁 *Tam sonuç TXT dosyasında* 👇`;
+  
+  // ===== TXT GÖNDER =====
+  const fileName = `${apiKey}_${Date.now()}.txt`;
+  const r = await tgSendDocument(botToken, chatId, txt, fileName, ozet, keyboard);
+  
+  if (!r.ok) {
+    console.error("Dosya gönderilemedi:", r);
+    // Fallback: metin olarak gönder
+    let fallback = txt.slice(0, 3800);
+    if (txt.length > 3800) fallback += "\n\n_...kısaltıldı_";
+    await tgSend(botToken, chatId, fallback, keyboard);
+  }
+  
+  return r.ok;
 }
 
 // ============================================
@@ -225,7 +322,9 @@ export default async function handler(req, res) {
   const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
   const origin = proto + "://" + host;
 
-  // ===== WEBHOOK =====
+  // ==========================================
+  // POST = WEBHOOK
+  // ==========================================
   if (req.method === "POST") {
     try {
       let body = req.body;
@@ -233,7 +332,9 @@ export default async function handler(req, res) {
       const update = body;
       const botToken = req.query.bot;
       
-      if (!botToken || !BOTS.has(botToken)) return res.status(200).json({ ok: true });
+      if (!botToken || !BOTS.has(botToken)) {
+        return res.status(200).json({ ok: true });
+      }
       
       const botData = BOTS.get(botToken);
 
@@ -249,7 +350,11 @@ export default async function handler(req, res) {
 
         if (text === "/help") {
           await tgSend(botToken, chatId,
-            `🆘 *YARDIM*\n\n▪️ Sorgu için butona bas\n▪️ Bilgi gir\n▪️ Sonuç gelir\n\n📞 Destek: @fbxnext`,
+            `🆘 *YARDIM*\n\n` +
+            `▪️ Sorgu için butona bas\n` +
+            `▪️ Bilgi gir\n` +
+            `▪️ Sonuç TXT dosyası olarak gelir\n\n` +
+            `📞 Destek: @fbxnext`,
             botMenu()
           );
           return res.status(200).json({ ok: true });
@@ -266,9 +371,10 @@ export default async function handler(req, res) {
           BOTS.set(botToken, botData);
 
           await tgSend(botToken, chatId, `⏳ *Sorgulanıyor...*`);
+          
           const sonuc = await sorguYap(waitingKey, query);
-          const mesaj = sonucFormatla(waitingKey, sonuc);
-          await tgSend(botToken, chatId, mesaj, botMenu());
+          await sonucGonder(botToken, chatId, waitingKey, sonuc, botMenu());
+          
           return res.status(200).json({ ok: true });
         }
 
@@ -287,15 +393,15 @@ export default async function handler(req, res) {
         if (data === "info") {
           await tgSend(botToken, chatId,
             `⚡ *SİSTEM BİLGİSİ*\n\n` +
-            `🖥️ *CPU:* Kullanmaz (serverless)\n` +
-            `💾 *RAM:* Kullanmaz (serverless)\n` +
+            `🖥️ *CPU:* Kullanmaz\n` +
+            `💾 *RAM:* Kullanmaz\n` +
             `🌐 *Çalışma:* 7/24 aktif\n` +
-            `📊 *Limit:* Sınırsız sorgu\n` +
+            `📊 *Limit:* Sınırsız\n` +
             `⚡ *Hız:* Süper hızlı\n` +
+            `📄 *Sonuç:* TXT dosyası\n` +
             `🔒 *Güvenlik:* Uçtan uca\n\n` +
             `🚀 Webhook tabanlı sistem —\n` +
-            `Sadece sorgu gelince çalışır,\n` +
-            `Boşta kaynak tüketmez.`,
+            `Sadece sorgu gelince çalışır.`,
             botMenu()
           );
           return res.status(200).json({ ok: true });
@@ -329,7 +435,9 @@ export default async function handler(req, res) {
     }
   }
 
-  // ===== GET API =====
+  // ==========================================
+  // GET = API
+  // ==========================================
   const apiKey = req.query.api;
   const userKey = req.query.key;
 
