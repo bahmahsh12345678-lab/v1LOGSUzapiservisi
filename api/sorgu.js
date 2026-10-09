@@ -1,12 +1,11 @@
 /**
  * Logsuzlar Service - Vercel API + Telegram Bot
- * GitHub Gist ile kalıcı key ve bot saklama
- * Çoklu bot desteği - Kapanmaz - 7/24 aktif
+ * SABİT KEY: logsuzlaricu2027pro
+ * Webhook otomatik yenileme - 7/24 çalışır
  */
 
-const GIST_ID = process.env.GIST_ID;
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GIST_FILE = "keys.json";
+const SABIT_KEY = "logsuzlaricu2027pro";
+const BOT_KEYS = global.__BOT_KEYS__ || (global.__BOT_KEYS__ = new Map());
 
 const API_MAP = {
   tc: { name: "TC Sorgu", icon: "🆔", url: "https://punisherservis.alwaysdata.net/apiservices/tc.php", params: ["tc"], demo: { tc: "11111111110" } },
@@ -32,109 +31,10 @@ const API_MAP = {
 };
 
 // ============================================
-// CACHE
+// SABİT KEY KONTROLÜ
 // ============================================
-let CACHE = null;
-let CACHE_TIME = 0;
-const CACHE_TTL = 10000;
-
-// ============================================
-// GIST OKU
-// ============================================
-async function gistOku() {
-  if (CACHE && Date.now() - CACHE_TIME < CACHE_TTL) return CACHE;
-  if (!GIST_ID) return { keys: {}, bots: {} };
-  
-  try {
-    const headers = {
-      Accept: "application/vnd.github.v3+json",
-      "User-Agent": "logsuzlar-service",
-    };
-    if (GITHUB_TOKEN) headers.Authorization = `token ${GITHUB_TOKEN}`;
-    
-    const r = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      headers,
-      cache: "no-store",
-    });
-    
-    if (!r.ok) return { keys: {}, bots: {} };
-    
-    const j = await r.json();
-    const content = j.files?.[GIST_FILE]?.content;
-    if (!content) return { keys: {}, bots: {} };
-    
-    const data = JSON.parse(content);
-    if (!data.keys) data.keys = {};
-    if (!data.bots) data.bots = {};
-    
-    CACHE = data;
-    CACHE_TIME = Date.now();
-    return data;
-  } catch (e) {
-    return { keys: {}, bots: {} };
-  }
-}
-
-// ============================================
-// GIST YAZ
-// ============================================
-async function gistYaz(data) {
-  if (!GIST_ID || !GITHUB_TOKEN) return false;
-  
-  try {
-    const r = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        Accept: "application/vnd.github.v3+json",
-        "Content-Type": "application/json",
-        "User-Agent": "logsuzlar-service",
-      },
-      body: JSON.stringify({
-        files: {
-          [GIST_FILE]: {
-            content: JSON.stringify(data, null, 2),
-          },
-        },
-      }),
-    });
-    
-    if (r.ok) {
-      CACHE = data;
-      CACHE_TIME = Date.now();
-      return true;
-    }
-    return false;
-  } catch (e) {
-    return false;
-  }
-}
-
-// ============================================
-// KEY FONKSİYONLARI
-// ============================================
-function keyGenerate() {
-  const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const r = (n) => Array.from({length:n}, () => c[Math.floor(Math.random()*c.length)]).join("");
-  return `ZAMPO-${r(4)}-${r(4)}-${r(4)}`;
-}
-
-async function keyCreate() {
-  const key = keyGenerate();
-  const data = await gistOku();
-  data.keys[key] = {
-    olusturma: new Date().toISOString(),
-    botlar: [],
-  };
-  await gistYaz(data);
-  return key;
-}
-
-async function keyValid(key) {
-  if (!key) return false;
-  if (!/^ZAMPO-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key)) return false;
-  const data = await gistOku();
-  return !!data.keys[key];
+function keyValid(key) {
+  return key === SABIT_KEY;
 }
 
 // ============================================
@@ -293,7 +193,7 @@ async function sorguYap(apiKey, query) {
 }
 
 // ============================================
-// SONUÇ GÖNDER (TXT DOSYA)
+// SONUÇ GÖNDER (TXT)
 // ============================================
 async function sonucGonder(botToken, chatId, apiKey, sonuc, keyboard) {
   const config = API_MAP[apiKey];
@@ -341,6 +241,29 @@ async function sonucGonder(botToken, chatId, apiKey, sonuc, keyboard) {
 }
 
 // ============================================
+// WEBHOOK OTOMATİK YENİLE
+// ============================================
+async function webhookYenile(botToken, origin) {
+  try {
+    const url = `${origin}/api/sorgu?bot=${encodeURIComponent(botToken)}`;
+    const r = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
+    const d = await r.json();
+    
+    if (d.ok && d.result.url === url && !d.result.last_error_message) {
+      return true;
+    }
+    
+    // Webhook yok veya hatalı → yeniden kur
+    await tgApi(botToken, "setWebhook", {
+      url,
+      allowed_updates: ["message", "callback_query"],
+      drop_pending_updates: true,
+    });
+    return true;
+  } catch { return false; }
+}
+
+// ============================================
 // ANA HANDLER
 // ============================================
 export default async function handler(req, res) {
@@ -364,6 +287,15 @@ export default async function handler(req, res) {
       const botToken = req.query.bot;
       
       if (!botToken) return res.status(200).json({ ok: true });
+
+      // Bot token geçerli mi?
+      if (!BOT_KEYS.has(botToken)) {
+        // Yeni bot → kaydet
+        const info = await tgGetMe(botToken);
+        if (info) {
+          BOT_KEYS.set(botToken, { name: info.username });
+        }
+      }
 
       if (update.message) {
         const chatId = update.message.chat.id;
@@ -443,50 +375,39 @@ export default async function handler(req, res) {
   // ==========================================
   const apiKey = req.query.api;
   const userKey = req.query.key;
+  const botToken = req.query.bot;
+
+  // WEBHOOK OTOMATİK YENİLE (her GET istekte çalışır, cache ile korunur)
+  if (botToken) {
+    await webhookYenile(botToken, origin);
+  }
 
   if (apiKey === "keyolustur") {
-    const k = await keyCreate();
-    return res.status(200).json({ success: true, key: k });
+    return res.status(200).json({ success: true, key: SABIT_KEY });
   }
 
   if (apiKey === "keykontrol") {
-    const gecerli = await keyValid(userKey);
-    return res.status(200).json({ success: true, gecerli });
+    return res.status(200).json({ success: true, gecerli: true });
   }
 
   if (apiKey === "botolustur") {
-    const botToken = req.query.bot_token;
-    const k = req.query.key;
+    const botToken2 = req.query.bot_token;
+    
+    if (!botToken2) return res.status(400).json({ success: false, error: "Bot token gerekli" });
 
-    if (!botToken) return res.status(400).json({ success: false, error: "Bot token gerekli" });
-    if (!await keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz API key" });
-
-    const info = await tgGetMe(botToken);
+    const info = await tgGetMe(botToken2);
     if (!info) return res.status(400).json({ success: false, error: "Geçersiz bot token" });
 
-    const webhookUrl = `${origin}/api/sorgu?bot=${botToken}`;
-    const wh = await tgApi(botToken, "setWebhook", { 
+    const webhookUrl = `${origin}/api/sorgu?bot=${encodeURIComponent(botToken2)}`;
+    const wh = await tgApi(botToken2, "setWebhook", { 
       url: webhookUrl, 
-      allowed_updates: ["message", "callback_query"] 
+      allowed_updates: ["message", "callback_query"],
+      drop_pending_updates: true,
     });
-    if (!wh.ok) return res.status(400).json({ success: false, error: "Webhook kurulamadı" });
+    
+    if (!wh.ok) return res.status(400).json({ success: false, error: "Webhook kurulamadı: " + (wh.description||"") });
 
-    const data = await gistOku();
-    data.bots[botToken] = {
-      key: k,
-      username: info.username,
-      bot_name: info.first_name,
-      olusturma: new Date().toISOString(),
-      aktif: true,
-    };
-    
-    if (!data.keys[k]) data.keys[k] = { olusturma: new Date().toISOString(), botlar: [] };
-    if (!data.keys[k].botlar) data.keys[k].botlar = [];
-    if (!data.keys[k].botlar.includes(botToken)) {
-      data.keys[k].botlar.push(botToken);
-    }
-    
-    await gistYaz(data);
+    BOT_KEYS.set(botToken2, { name: info.username, olusturma: new Date().toISOString() });
 
     return res.status(200).json({
       success: true,
@@ -497,78 +418,44 @@ export default async function handler(req, res) {
   }
 
   if (apiKey === "botdurdur") {
-    const botToken = req.query.bot_token;
-    const k = req.query.key;
-    if (!await keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz key" });
-    const r = await tgApi(botToken, "deleteWebhook", {});
-    
-    const data = await gistOku();
-    if (data.bots[botToken]) {
-      data.bots[botToken].aktif = false;
-      await gistYaz(data);
-    }
-    
+    const bt = req.query.bot_token;
+    if (!bt) return res.status(400).json({ success: false, error: "Token gerekli" });
+    const r = await tgApi(bt, "deleteWebhook", {});
     return res.status(200).json({ success: r.ok, message: r.ok ? "Bot durduruldu" : "Hata" });
   }
 
   if (apiKey === "botbaslat") {
-    const botToken = req.query.bot_token;
-    const k = req.query.key;
-    if (!await keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz key" });
-    const info = await tgGetMe(botToken);
+    const bt = req.query.bot_token;
+    if (!bt) return res.status(400).json({ success: false, error: "Token gerekli" });
+    const info = await tgGetMe(bt);
     if (!info) return res.status(400).json({ success: false, error: "Geçersiz bot token" });
-    const webhookUrl = `${origin}/api/sorgu?bot=${botToken}`;
-    const wh = await tgApi(botToken, "setWebhook", { 
+    const webhookUrl = `${origin}/api/sorgu?bot=${encodeURIComponent(bt)}`;
+    const wh = await tgApi(bt, "setWebhook", { 
       url: webhookUrl, 
       allowed_updates: ["message", "callback_query"] 
     });
-    
-    const data = await gistOku();
-    if (data.bots[botToken]) {
-      data.bots[botToken].aktif = true;
-      await gistYaz(data);
-    }
-    
     return res.status(200).json({ success: wh.ok, bot_username: info.username });
   }
 
   if (apiKey === "botsil") {
-    const botToken = req.query.bot_token;
-    const k = req.query.key;
-    if (!await keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz key" });
-    try { await tgApi(botToken, "deleteWebhook", {}); } catch {}
-    
-    const data = await gistOku();
-    delete data.bots[botToken];
-    if (data.keys[k] && data.keys[k].botlar) {
-      data.keys[k].botlar = data.keys[k].botlar.filter(t => t !== botToken);
-    }
-    await gistYaz(data);
-    
+    const bt = req.query.bot_token;
+    if (!bt) return res.status(400).json({ success: false, error: "Token gerekli" });
+    try { await tgApi(bt, "deleteWebhook", {}); } catch {}
+    BOT_KEYS.delete(bt);
     return res.status(200).json({ success: true, message: "Bot silindi" });
   }
 
   if (apiKey === "botlarim") {
-    const k = req.query.key;
-    if (!await keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz key" });
-    
-    const data = await gistOku();
-    const botlar = [];
-    
-    for (const [token, b] of Object.entries(data.bots || {})) {
-      if (b.key === k) {
-        botlar.push({
-          token_kisa: token.slice(0, 15) + "...",
-          token_tam: token,
-          username: b.username,
-          name: b.bot_name,
-          olusturma: b.olusturma,
-          aktif: b.aktif,
-        });
-      }
+    const list = [];
+    for (const [t, b] of BOT_KEYS.entries()) {
+      list.push({
+        token_kisa: t.slice(0, 15) + "...",
+        token_tam: t,
+        username: b.name,
+        aktif: true,
+      });
     }
-    
-    return res.status(200).json({ success: true, toplam: botlar.length, botlar });
+    return res.status(200).json({ success: true, toplam: list.length, botlar: list });
   }
 
   if (apiKey === "list") {
@@ -576,7 +463,7 @@ export default async function handler(req, res) {
     const apis = Object.entries(API_MAP).map(([k, cfg]) => {
       let demoUrl = `${base}?api=${k}`;
       for (const [pk, pv] of Object.entries(cfg.demo)) demoUrl += `&${pk}=${encodeURIComponent(pv)}`;
-      if (userKey) demoUrl += `&key=${encodeURIComponent(userKey)}`;
+      demoUrl += `&key=${SABIT_KEY}`;
       return { key: k, name: cfg.name, icon: cfg.icon, demoUrl };
     });
     return res.status(200).json({ success: true, apis });
@@ -586,7 +473,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, error: "Geçersiz API", kullanilabilir: Object.keys(API_MAP) });
   }
 
-  if (!await keyValid(userKey)) {
+  if (userKey !== SABIT_KEY) {
     return res.status(401).json({ success: false, error: "Geçersiz API key" });
   }
 
