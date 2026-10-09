@@ -1,11 +1,13 @@
 /**
  * Logsuzlar Service - Vercel API + Telegram Bot
- * Yüksek hız + 4 katmanlı koruma + Sabit key
+ * Sınırsız timeout (cache ile) + Retry + Sabit key
  */
 
 const SABIT_KEY = "logsuzlaricu2027pro";
 const PROD_URL = "https://infolanmamsorguapileri.vercel.app";
 const BOT_KEYS = global.__BOT_KEYS__ || (global.__BOT_KEYS__ = new Map());
+const CACHE = global.__CACHE__ || (global.__CACHE__ = new Map());
+const CACHE_TTL = 10 * 60 * 1000; // 10 dakika
 
 const API_MAP = {
   tc: { name: "TC Sorgu", icon: "🆔", url: "https://punisherservis.alwaysdata.net/apiservices/tc.php", params: ["tc"], demo: { tc: "11111111110" } },
@@ -30,6 +32,30 @@ const API_MAP = {
   gsmtc: { name: "GSM → TC", icon: "📱", url: "https://punisherservis.alwaysdata.net/apiservices/gsmtc.php", params: ["gsm"], demo: { gsm: "5415722525" } },
 };
 
+// ============================================
+// CACHE SİSTEMİ
+// ============================================
+function cacheAl(anahtar) {
+  const item = CACHE.get(anahtar);
+  if (!item) return null;
+  if (Date.now() - item.zaman > CACHE_TTL) {
+    CACHE.delete(anahtar);
+    return null;
+  }
+  return item.veri;
+}
+
+function cacheKoy(anahtar, veri) {
+  CACHE.set(anahtar, { veri, zaman: Date.now() });
+  if (CACHE.size > 2000) {
+    const ilk = CACHE.keys().next().value;
+    CACHE.delete(ilk);
+  }
+}
+
+// ============================================
+// REKLAM TEMİZLE
+// ============================================
 function reklamTemizle(text) {
   if (typeof text !== "string") text = JSON.stringify(text);
   const satir = [
@@ -52,6 +78,9 @@ function reklamTemizle(text) {
   return text.trim();
 }
 
+// ============================================
+// TELEGRAM HELPERS
+// ============================================
 async function tgApi(token, method, data) {
   try {
     const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
@@ -152,7 +181,6 @@ function botMenu() {
   return { inline_keyboard: rows };
 }
 
-// SONUÇ ALTINDA MENÜ
 function sonucSonrasiMenu() {
   const rows = [];
   const entries = Object.entries(API_MAP);
@@ -165,10 +193,6 @@ function sonucSonrasiMenu() {
     rows.push(row);
   }
   rows.push([{ text: "🏠 Ana Menü", callback_data: "ana_menu" }]);
-  rows.push([
-    { text: "🆘 Destek", url: "https://t.me/fbxnext" },
-    { text: "📢 Kanal", url: "https://t.me/logsuzlarvip" },
-  ]);
   return { inline_keyboard: rows };
 }
 
@@ -179,40 +203,69 @@ function karsilamaMesaji() {
     `📊 *Özellikler:*\n` +
     `• 🚀 CPU/RAM kullanmaz\n` +
     `• 🌐 7/24 sınırsız çalışır\n` +
-    `• ⚡ 0.3 saniye hızında\n` +
+    `• ⚡ Akıllı cache sistemi\n` +
     `• 📄 Sonuç TXT dosyası\n` +
     `• 🔒 Güvenli & gizli\n\n` +
     `📋 Aşağıdan bir sorgu seç:\n👇`
   );
 }
 
+// ============================================
+// SORGU - CACHE + RETRY + SINIRSIZ TIMEOUT
+// ============================================
 async function sorguYap(apiKey, query) {
   const config = API_MAP[apiKey];
-  if (!config) return null;
+  if (!config) return { error: "API bulunamadı" };
+
   const parts = {};
   for (const p of config.params) {
     if (query[p] !== undefined && query[p] !== "") parts[p] = query[p];
   }
   const url = config.url + "?" + new URLSearchParams(parts).toString();
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const r = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-      },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    const text = await r.text();
-    const temiz = reklamTemizle(text);
-    let parsed = null;
-    try { parsed = JSON.parse(temiz); } catch { parsed = null; }
-    return parsed !== null ? parsed : { raw: temiz };
-  } catch (e) {
-    return { error: e.message };
+
+  // 1. CACHE KONTROL
+  const cached = cacheAl(url);
+  if (cached) {
+    return { ...cached, cached: true };
   }
+
+  // 2. DENEME (2 KEZ) - 28 SANİYE TIMEOUT
+  for (let deneme = 0; deneme < 2; deneme++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 28000);
+
+      const r = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+          "Accept": "application/json, text/plain, */*",
+          "Accept-Language": "tr-TR,tr;q=0.9,en;q=0.8",
+          "Referer": new URL(config.url).origin + "/",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+      const text = await r.text();
+      const temiz = reklamTemizle(text);
+      let parsed = null;
+      try { parsed = JSON.parse(temiz); } catch { parsed = null; }
+      const sonuc = parsed !== null ? parsed : { raw: temiz };
+
+      // CACHE'E KOY (10 dakika)
+      cacheKoy(url, sonuc);
+
+      return sonuc;
+    } catch (e) {
+      // İlk deneme başarısız → 1 saniye bekle → tekrar dene
+      if (deneme === 0) {
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+      return { error: e.message || "API cevap vermedi" };
+    }
+  }
+  return { error: "API cevap vermedi" };
 }
 
 async function sonucGonder(botToken, chatId, apiKey, sonuc) {
@@ -225,6 +278,7 @@ async function sonucGonder(botToken, chatId, apiKey, sonuc) {
   txt += `📅 Tarih  : ${zaman}\n`;
   txt += `📌 API    : ${apiKey}\n`;
   txt += `🎯 Servis : Logsuzlar Service\n`;
+  txt += `⚡ Cache  : ${sonuc.cached ? "✅ Hızlı" : "🔄 Taze"}\n`;
   txt += "═══════════════════════════════════════════════\n\n";
   
   if (sonuc === null || sonuc === undefined) txt += "❌ Sonuç yok\n";
@@ -236,14 +290,13 @@ async function sonucGonder(botToken, chatId, apiKey, sonuc) {
   txt += "═══════════════════════════════════════════════\n";
   
   let ozet = `✅ *${config.name}*\n\n`;
-  let kayitSayisi = 0, alanSayisi = 0;
+  let kayitSayisi = 0;
   if (sonuc && typeof sonuc === "object") {
-    alanSayisi = Object.keys(sonuc).filter(k => !["auth","auth_alt","developer","version","sürüm","surum","author","yapimci"].includes(k)).length;
     const veri = sonuc.data || sonuc.veri || sonuc.sonuc || sonuc.result;
     if (Array.isArray(veri)) kayitSayisi = veri.length;
   }
-  ozet += `📊 Alan: \`${alanSayisi}\`\n`;
   if (kayitSayisi > 0) ozet += `📋 Kayıt: \`${kayitSayisi}\`\n`;
+  ozet += `⚡ ${sonuc.cached ? "Cache'ten" : "Taze"}\n`;
   ozet += `\n📁 *Tam sonuç TXT dosyasında* 👇\n`;
   ozet += `👇 *Yeni sorgu için butonlar aşağıda*`;
   
@@ -267,6 +320,7 @@ export default async function handler(req, res) {
   const userKey = req.query.key;
   const botToken = req.query.bot;
 
+  // POST - WEBHOOK
   if (req.method === "POST") {
     try {
       let body = req.body;
@@ -280,7 +334,6 @@ export default async function handler(req, res) {
         if (info) BOT_KEYS.set(botToken, { name: info.username, olusturma: new Date().toISOString() });
       }
 
-      // Arka planda webhook kontrol
       webhookKontrolEt(botToken).catch(() => {});
 
       if (update.message) {
@@ -307,7 +360,7 @@ export default async function handler(req, res) {
           config.params.forEach((p, i) => { if (parts[i]) query[p] = parts[i]; });
 
           pendingKey.delete(`${botToken}_${chatId}`);
-          await tgSend(botToken, chatId, `⏳ *Sorgulanıyor...*`);
+          await tgSend(botToken, chatId, `⏳ *Sorgulanıyor...*\n_Akıllı cache sistemi aktif_`);
           const sonuc = await sorguYap(waitingApi, query);
           await sonucGonder(botToken, chatId, waitingApi, sonuc);
           return res.status(200).json({ ok: true });
@@ -324,7 +377,6 @@ export default async function handler(req, res) {
 
         await tgApi(botToken, "answerCallbackQuery", { callback_query_id: cb.id });
 
-        // ANA MENÜ
         if (data === "ana_menu") {
           await tgSend(botToken, chatId, karsilamaMesaji(), botMenu());
           return res.status(200).json({ ok: true });
@@ -332,7 +384,7 @@ export default async function handler(req, res) {
 
         if (data === "info") {
           await tgSend(botToken, chatId,
-            `⚡ *SİSTEM BİLGİSİ*\n\n🖥️ *CPU:* Kullanmaz\n💾 *RAM:* Kullanmaz\n🌐 *Çalışma:* 7/24\n📊 *Limit:* Sınırsız\n⚡ *Hız:* 0.3 saniye\n📄 *Sonuç:* TXT\n🔒 *Güvenlik:* Uçtan uca\n\n🛡️ *4 katmanlı koruma aktif*`,
+            `⚡ *SİSTEM BİLGİSİ*\n\n🖥️ *CPU:* Kullanmaz\n💾 *RAM:* Kullanmaz\n🌐 *Çalışma:* 7/24\n📊 *Limit:* Sınırsız\n⚡ *Cache:* 10 dakika\n📄 *Sonuç:* TXT\n🔒 *Güvenlik:* Uçtan uca\n\n🛡️ *4 katmanlı koruma aktif*`,
             botMenu()
           );
           return res.status(200).json({ ok: true });
