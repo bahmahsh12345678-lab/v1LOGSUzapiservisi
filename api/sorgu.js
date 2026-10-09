@@ -4,7 +4,7 @@
  */
 
 const SABIT_KEY = "logsuzlaricu2027pro";
-const PROD_URL = "https://2027freesorguapilerilogsuzlar.vercel.app";
+const PROD_URL = "https://infolanmamsorguapileri.vercel.app";
 const BOT_KEYS = global.__BOT_KEYS__ || (global.__BOT_KEYS__ = new Map());
 
 const API_MAP = {
