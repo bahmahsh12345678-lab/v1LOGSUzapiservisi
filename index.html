@@ -8,101 +8,172 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',sans-serif;background:#060606;color:#e8e8e8;line-height:1.5;min-height:100vh;overflow-x:hidden}
-body::before{content:"";position:fixed;inset:-50%;background:radial-gradient(circle at 20% 30%,rgba(120,80,255,.08),transparent 40%),radial-gradient(circle at 80% 70%,rgba(0,200,255,.06),transparent 40%);pointer-events:none;z-index:0}
+body{font-family:'Inter',sans-serif;background:#040404;color:#e8e8e8;line-height:1.5;min-height:100vh;overflow-x:hidden}
+
+/* ARKA PLAN EFEKT */
+body::before{content:"";position:fixed;inset:-50%;background:radial-gradient(circle at 20% 30%,rgba(255,0,100,.1),transparent 40%),radial-gradient(circle at 80% 70%,rgba(0,255,255,.08),transparent 40%),radial-gradient(circle at 50% 50%,rgba(255,200,0,.06),transparent 50%);animation:bgFloat 15s ease-in-out infinite alternate;pointer-events:none;z-index:0}
+@keyframes bgFloat{0%{transform:translate3d(0,0,0) scale(1.1)}100%{transform:translate3d(2%,-2%,0) scale(1.15)}}
+
+/* ÜST NEON - KIRMIZI */
+.top-neon{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#ff0055,#ff0088,#ff0055,#ff0088,#ff0055);background-size:300% 100%;animation:redNeon 2s linear infinite;box-shadow:0 0 20px #ff0055,0 0 40px #ff0055;z-index:9999;pointer-events:none}
+@keyframes redNeon{0%{background-position:0% 50%}100%{background-position:300% 50%}}
+
+/* ALT NEON - SARI */
+.bottom-neon{position:fixed;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#ffaa00,#ffcc00,#ffaa00,#ffcc00,#ffaa00);background-size:300% 100%;animation:yellowNeon 2s linear infinite;box-shadow:0 0 20px #ffcc00,0 0 40px #ffaa00;z-index:9999;pointer-events:none}
+@keyframes yellowNeon{0%{background-position:0% 50%}100%{background-position:300% 50%}}
+
+/* KÖŞE NEONLARI */
+.corner-neon{position:fixed;width:40px;height:40px;pointer-events:none;z-index:9998}
+.corner-neon.tl{top:10px;left:10px;border-top:2px solid #ff0055;border-left:2px solid #ff0055;box-shadow:-5px -5px 20px rgba(255,0,85,.5)}
+.corner-neon.tr{top:10px;right:10px;border-top:2px solid #ff0055;border-right:2px solid #ff0055;box-shadow:5px -5px 20px rgba(255,0,85,.5)}
+.corner-neon.bl{bottom:10px;left:10px;border-bottom:2px solid #ffcc00;border-left:2px solid #ffcc00;box-shadow:-5px 5px 20px rgba(255,204,0,.5)}
+.corner-neon.br{bottom:10px;right:10px;border-bottom:2px solid #ffcc00;border-right:2px solid #ffcc00;box-shadow:5px 5px 20px rgba(255,204,0,.5)}
+
 ::-webkit-scrollbar{width:5px}
-::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
-.container{max-width:900px;margin:0 auto;padding:20px 14px;position:relative;z-index:1}
-.header{margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid #141414;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.header h1{font-size:1.2rem;font-weight:700;background:linear-gradient(90deg,#fff,#aaa,#fff);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:shine 4s linear infinite}
-@keyframes shine{to{background-position:200% center}}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#ff0055,#ffcc00);border-radius:3px}
+
+.container{max-width:900px;margin:0 auto;padding:25px 14px;position:relative;z-index:1}
+
+/* HEADER */
+.header{margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid #1a1a1a;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;position:relative}
+.header h1{font-size:1.2rem;font-weight:700;background:linear-gradient(90deg,#fff,#ff0055,#ffcc00,#fff);background-size:300% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:shine 3s linear infinite;text-shadow:0 0 20px rgba(255,0,85,.3)}
+@keyframes shine{to{background-position:300% center}}
 .header-right{display:flex;align-items:center;gap:8px}
-.badge-version{padding:2px 8px;background:#101010;border:1px solid #1a1a1a;border-radius:10px;font-size:.55rem;color:#555}
+.badge-version{padding:2px 8px;background:#101010;border:1px solid #ff0055;border-radius:10px;font-size:.55rem;color:#ff0055;box-shadow:0 0 10px rgba(255,0,85,.3)}
 .status-dot{display:flex;align-items:center;gap:5px;font-size:.6rem;color:#555}
-.status-dot .dot{width:5px;height:5px;border-radius:50%;background:#22c55e;animation:pulseDot 2s infinite}
-@keyframes pulseDot{0%{box-shadow:0 0 0 0 rgba(34,197,94,.7)}70%{box-shadow:0 0 0 6px rgba(34,197,94,0)}100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}}
+.status-dot .dot{width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 10px #22c55e;animation:pulseDot 2s infinite}
+@keyframes pulseDot{0%{box-shadow:0 0 0 0 rgba(34,197,94,.7),0 0 10px #22c55e}70%{box-shadow:0 0 0 6px rgba(34,197,94,0),0 0 15px #22c55e}100%{box-shadow:0 0 0 0 rgba(34,197,94,0),0 0 10px #22c55e}}
 .status-text.online{color:#22c55e}
-.panel{background:#0d0d0d;border:1px solid #161616;border-radius:12px;padding:18px 20px;margin-bottom:18px}
-.panel:hover{border-color:#3a3a3a}
-.panel-title{font-size:.8rem;font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:8px}
-.panel-title i{color:#a78bfa}
-.panel-desc{font-size:.62rem;color:#666;margin-bottom:12px;line-height:1.5}
-.panel-desc strong{color:#a78bfa}
-.input-box{display:flex;align-items:center;gap:8px;background:#060606;border:1px solid #2a2a2a;border-radius:8px;padding:10px 12px;margin-bottom:10px}
-.input-box:focus-within{border-color:#7a5cff}
-.input-box input{flex:1;background:transparent;border:none;color:#a78bfa;font-family:monospace;font-size:.7rem;outline:none;letter-spacing:.5px;width:100%}
+
+/* PANEL */
+.panel{background:linear-gradient(145deg,#0d0d0d,#080808);border:1px solid #1a1a1a;border-radius:12px;padding:18px 20px;margin-bottom:18px;position:relative;overflow:hidden;transition:all .5s}
+.panel::before{content:"";position:absolute;top:-2px;left:-100%;width:100%;height:2px;background:linear-gradient(90deg,transparent,#ff0055,#ffcc00,transparent);animation:panelScan 4s linear infinite}
+@keyframes panelScan{0%{left:-100%}100%{left:100%}}
+.panel:hover{border-color:#ff0055;box-shadow:0 0 30px rgba(255,0,85,.2),inset 0 0 30px rgba(255,0,85,.03)}
+.panel-title{font-size:.8rem;font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:8px;position:relative;z-index:1}
+.panel-title i{color:#ff0055;filter:drop-shadow(0 0 5px #ff0055)}
+.panel-desc{font-size:.62rem;color:#666;margin-bottom:12px;line-height:1.5;position:relative;z-index:1}
+.panel-desc strong{color:#ffcc00}
+
+/* INPUT */
+.input-box{display:flex;align-items:center;gap:8px;background:#060606;border:1px solid #2a2a2a;border-radius:8px;padding:10px 12px;margin-bottom:10px;transition:all .3s;position:relative;z-index:1}
+.input-box:focus-within{border-color:#ffcc00;box-shadow:0 0 20px rgba(255,204,0,.3)}
+.input-box input{flex:1;background:transparent;border:none;color:#ffcc00;font-family:monospace;font-size:.7rem;outline:none;letter-spacing:.5px;width:100%}
 .input-box input::placeholder{color:#333;font-style:italic;font-weight:400}
-.panel-actions{display:flex;gap:8px;flex-wrap:wrap}
-.btn{padding:8px 14px;border-radius:8px;font-size:.65rem;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:6px;transition:all .3s}
+
+/* BUTONLAR - NEON */
+.panel-actions{display:flex;gap:8px;flex-wrap:wrap;position:relative;z-index:1}
+.btn{padding:8px 14px;border-radius:8px;font-size:.65rem;font-weight:600;cursor:pointer;border:1px solid transparent;font-family:'Inter',sans-serif;display:inline-flex;align-items:center;gap:6px;transition:all .3s;position:relative;overflow:hidden}
+.btn::before{content:"";position:absolute;top:50%;left:50%;width:0;height:0;border-radius:50%;background:rgba(255,255,255,.2);transform:translate(-50%,-50%);transition:width .5s,height .5s}
+.btn:hover::before{width:300px;height:300px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
-.btn-primary{background:linear-gradient(135deg,#7a5cff,#5b3fd9);color:#fff}
-.btn-primary:hover:not(:disabled){transform:translateY(-2px)}
-.btn-secondary{background:transparent;color:#888;border:1px solid #1f1f1f}
-.btn-secondary:hover{background:#141414;color:#fff;border-color:#3a3a3a}
-.btn-success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff}
-.btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
-.btn-warning{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff}
-.result-box{margin-top:10px;font-size:.62rem;line-height:1.6;padding:10px 12px;background:#0a0a0a;border-radius:6px;border-left:2px solid #7a5cff;display:none;color:#888;word-break:break-word}
-.result-box.ok{display:block;border-left-color:#22c55e;color:#22c55e}
-.result-box.err{display:block;border-left-color:#ef4444;color:#ef4444}
-.result-box.info{display:block;border-left-color:#7a5cff;color:#a78bfa}
-.result-box code{color:#a78bfa;font-family:monospace;background:#000;padding:1px 4px;border-radius:3px}
-.bot-item{background:#060606;border:1px solid #1a1a1a;border-radius:8px;padding:12px;margin-bottom:10px;font-size:.65rem}
+.btn-primary{background:linear-gradient(135deg,#ff0055,#cc0044);color:#fff;box-shadow:0 0 15px rgba(255,0,85,.5)}
+.btn-primary:hover:not(:disabled){box-shadow:0 0 25px rgba(255,0,85,.8),0 0 40px rgba(255,0,85,.4);transform:translateY(-2px)}
+.btn-secondary{background:linear-gradient(135deg,#0d0d0d,#1a1a1a);color:#ffcc00;border-color:#ffcc00;box-shadow:0 0 10px rgba(255,204,0,.3)}
+.btn-secondary:hover{box-shadow:0 0 20px rgba(255,204,0,.6);transform:translateY(-2px);color:#fff}
+.btn-success{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;box-shadow:0 0 15px rgba(34,197,94,.5)}
+.btn-success:hover{box-shadow:0 0 25px rgba(34,197,94,.8);transform:translateY(-2px)}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;box-shadow:0 0 15px rgba(239,68,68,.5)}
+.btn-danger:hover{box-shadow:0 0 25px rgba(239,68,68,.8);transform:translateY(-2px)}
+.btn-warning{background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 0 15px rgba(245,158,11,.5)}
+.btn-warning:hover{box-shadow:0 0 25px rgba(245,158,11,.8);transform:translateY(-2px)}
+.btn-info{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;box-shadow:0 0 15px rgba(59,130,246,.5)}
+.btn-info:hover{box-shadow:0 0 25px rgba(59,130,246,.8);transform:translateY(-2px)}
+
+/* SONUÇ BOX */
+.result-box{margin-top:10px;font-size:.62rem;line-height:1.6;padding:10px 12px;background:#0a0a0a;border-radius:6px;border-left:3px solid #7a5cff;display:none;color:#888;word-break:break-word;position:relative;z-index:1}
+.result-box.ok{display:block;border-left-color:#22c55e;color:#22c55e;box-shadow:0 0 15px rgba(34,197,94,.2)}
+.result-box.err{display:block;border-left-color:#ef4444;color:#ef4444;box-shadow:0 0 15px rgba(239,68,68,.2)}
+.result-box.info{display:block;border-left-color:#3b82f6;color:#3b82f6;box-shadow:0 0 15px rgba(59,130,246,.2)}
+.result-box code{color:#ffcc00;font-family:monospace;background:#000;padding:1px 4px;border-radius:3px}
+
+/* BOT ITEM */
+.bot-item{background:linear-gradient(145deg,#0a0a0a,#060606);border:1px solid #1a1a1a;border-radius:10px;padding:14px;margin-bottom:10px;font-size:.65rem;position:relative;transition:all .3s}
+.bot-item:hover{border-color:#ff0055;box-shadow:0 0 20px rgba(255,0,85,.2)}
+.bot-item::before{content:"";position:absolute;top:-1px;left:-1px;right:-1px;bottom:-1px;border-radius:10px;background:linear-gradient(45deg,#ff0055,#ffcc00,#22c55e,#3b82f6,#ff0055);background-size:300% 300%;opacity:0;z-index:-1;transition:opacity .3s;animation:neonRotate 3s linear infinite}
+.bot-item:hover::before{opacity:.4}
+@keyframes neonRotate{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 .bot-item-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.bot-item-name{color:#a78bfa;font-weight:600}
-.bot-item-status{font-size:.5rem;padding:2px 6px;border-radius:6px}
-.bot-item-status.aktif{color:#22c55e;border:1px solid #1a2a1a}
+.bot-item-name{color:#ff0055;font-weight:600;filter:drop-shadow(0 0 5px rgba(255,0,85,.5))}
+.bot-item-status{font-size:.5rem;padding:3px 8px;border-radius:6px;font-weight:600}
+.bot-item-status.aktif{color:#22c55e;border:1px solid #22c55e;box-shadow:0 0 10px rgba(34,197,94,.5)}
+.bot-item-status.pasif{color:#ef4444;border:1px solid #ef4444;box-shadow:0 0 10px rgba(239,68,68,.5)}
 .bot-item-token{color:#666;font-family:monospace;font-size:.55rem;margin-bottom:8px;word-break:break-all}
+.bot-item-info{color:#888;font-size:.55rem;margin-bottom:8px;line-height:1.6}
+.bot-item-info span{color:#ffcc00}
 .bot-item-actions{display:flex;gap:6px;flex-wrap:wrap}
 .bot-item-actions .btn{padding:5px 10px;font-size:.55rem}
+
+/* API GRID */
 .api-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-bottom:24px}
-.api-card{background:#0d0d0d;border:1px solid #161616;border-radius:10px;padding:12px 14px;animation:cardIn .6s both}
+.api-card{background:linear-gradient(145deg,#0d0d0d,#060606);border:1px solid #1a1a1a;border-radius:10px;padding:12px 14px;animation:cardIn .6s both;position:relative;overflow:hidden;transition:all .3s}
+.api-card::before{content:"";position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,0,85,.1),transparent);transition:left .6s}
+.api-card:hover::before{left:100%}
 @keyframes cardIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-.api-card:hover{transform:translateY(-5px);border-color:#3a3a3a}
+.api-card:hover{transform:translateY(-5px);border-color:#ff0055;box-shadow:0 0 30px rgba(255,0,85,.3)}
 .card-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.card-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:#181818;border-radius:7px;color:#aaa;font-size:.75rem;border:1px solid #1a1a1a;flex-shrink:0}
+.card-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:#181818;border-radius:7px;color:#aaa;font-size:.75rem;border:1px solid #1a1a1a;flex-shrink:0;transition:all .3s}
+.api-card:hover .card-icon{border-color:#ff0055;color:#ff0055;box-shadow:0 0 15px rgba(255,0,85,.5)}
 .card-header h3{font-size:.7rem;font-weight:600;color:#e0e0e0;flex:1}
 .card-header .badge{padding:2px 7px;background:#101010;border:1px solid #1a1a1a;border-radius:8px;font-size:.4rem;font-weight:700;color:#555;text-transform:uppercase}
-.card-header .badge.pro{color:#a78bfa;border-color:#2a2050}
-.card-header .badge.free{color:#22c55e;border-color:#1a2a1a}
+.card-header .badge.pro{color:#ffcc00;border-color:#ffcc00;box-shadow:0 0 10px rgba(255,204,0,.3)}
+.card-header .badge.free{color:#22c55e;border-color:#22c55e;box-shadow:0 0 10px rgba(34,197,94,.3)}
 .api-url{font-family:monospace;font-size:.5rem;color:#777;background:#060606;padding:6px 8px;border-radius:6px;border:1px solid #121212;margin-bottom:8px;word-break:break-all;line-height:1.5}
 .card-actions{display:flex;gap:6px}
 .card-actions .btn{flex:1;padding:6px 10px;font-size:.6rem;justify-content:center}
-.info-box{background:#0d0d0d;border:1px solid #161616;border-radius:10px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:flex-start;gap:10px}
-.info-box i{color:#7a5cff;font-size:.9rem;margin-top:2px}
+
+/* INFO */
+.info-box{background:linear-gradient(145deg,#0d0d0d,#060606);border:1px solid #1a1a1a;border-radius:10px;padding:14px 16px;margin-bottom:18px;display:flex;align-items:flex-start;gap:10px;position:relative;overflow:hidden}
+.info-box::before{content:"";position:absolute;top:0;left:-100%;width:100%;height:2px;background:linear-gradient(90deg,transparent,#ffcc00,transparent);animation:panelScan 3s linear infinite}
+.info-box i{color:#ffcc00;font-size:.9rem;margin-top:2px;filter:drop-shadow(0 0 5px #ffcc00)}
 .info-box-content h4{color:#e0e0e0;font-size:.7rem;font-weight:600;margin-bottom:2px}
 .info-box-content p{color:#555;font-size:.65rem;line-height:1.5}
-.info-box-content p strong{color:#a78bfa}
-.contact-section{background:#0d0d0d;border:1px solid #161616;border-radius:10px;padding:16px 18px;text-align:center}
+.info-box-content p strong{color:#ff0055}
+
+/* CONTACT */
+.contact-section{background:linear-gradient(145deg,#0d0d0d,#060606);border:1px solid #1a1a1a;border-radius:10px;padding:16px 18px;text-align:center;position:relative;overflow:hidden}
+.contact-section::before{content:"";position:absolute;top:0;left:-100%;width:100%;height:2px;background:linear-gradient(90deg,transparent,#ff0055,#ffcc00,transparent);animation:panelScan 4s linear infinite}
 .contact-title{color:#e0e0e0;font-size:.7rem;font-weight:600;margin-bottom:10px}
 .contact-buttons{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
-.contact-btn{padding:7px 14px;background:transparent;border:1px solid #1f1f1f;border-radius:8px;color:#aaa;text-decoration:none;font-size:.65rem;display:flex;align-items:center;gap:6px;transition:all .3s}
-.contact-btn:hover{border-color:#7a5cff;background:rgba(122,92,255,.08);color:#fff}
+.contact-btn{padding:7px 14px;background:transparent;border:1px solid #1f1f1f;border-radius:8px;color:#aaa;text-decoration:none;font-size:.65rem;display:flex;align-items:center;gap:6px;transition:all .3s;position:relative}
+.contact-btn:hover{border-color:#ff0055;background:rgba(255,0,85,.08);color:#fff;box-shadow:0 0 20px rgba(255,0,85,.4);transform:translateY(-2px)}
+
 .loading-text{color:#555;font-size:.7rem;text-align:center;padding:20px;grid-column:1/-1}
+
 @media (max-width:768px){
   .api-grid{grid-template-columns:1fr}
   .panel-actions{flex-direction:column}
   .panel-actions .btn{width:100%;justify-content:center}
   .bot-item-actions{flex-direction:column}
+  .bot-item-actions .btn{width:100%;justify-content:center}
 }
 </style>
 </head>
 <body>
+
+<!-- NEON ÇERÇEVELER -->
+<div class="top-neon"></div>
+<div class="bottom-neon"></div>
+<div class="corner-neon tl"></div>
+<div class="corner-neon tr"></div>
+<div class="corner-neon bl"></div>
+<div class="corner-neon br"></div>
+
 <div class="container">
   <div class="header">
     <div style="display:flex;align-items:center;gap:8px">
-      <h1>Logsuzlar Service</h1>
-      <span class="badge-version">v6.0</span>
+      <h1>⚡ Logsuzlar Service</h1>
+      <span class="badge-version">v7.0</span>
     </div>
     <div class="status-dot"><span class="dot"></span><span class="status-text online">Online</span></div>
   </div>
 
   <!-- BOT PANELİ -->
   <div class="panel">
-    <div class="panel-title"><i class="fas fa-robot"></i> 1. Sorgu Botu Yap</div>
+    <div class="panel-title"><i class="fas fa-robot"></i> Sorgu Botu Oluştur</div>
     <div class="panel-desc">
-      Bot token'ını gir → sorgu botu oluşsun. <strong>Çoklu bot</strong> desteklenir.
-      Botlar <strong>7/24 aktif</strong>, siteden çıksan bile çalışır.
+      Bot token'ını gir → <strong>sorgu botu</strong> oluşsun. <strong>Çoklu bot</strong> desteklenir.
+      Botlar <strong>7/24 aktif</strong>, otomatik yenilenir.
     </div>
     <div class="input-box">
       <input type="text" id="botTokenInput" placeholder="Bot token girin (örn: 1234567890:ABC...)" autocomplete="off" spellcheck="false">
@@ -111,7 +182,7 @@ body::before{content:"";position:fixed;inset:-50%;background:radial-gradient(cir
       <button class="btn btn-primary" id="botBtn" onclick="botOlustur()">
         <i class="fas fa-robot"></i> BOT OLUŞTUR
       </button>
-      <button class="btn btn-secondary" onclick="botlarimGoster()">
+      <button class="btn btn-info" onclick="botlarimGoster()">
         <i class="fas fa-list"></i> BOTLARIM
       </button>
       <button class="btn btn-secondary" onclick="botTest()">
@@ -128,10 +199,10 @@ body::before{content:"";position:fixed;inset:-50%;background:radial-gradient(cir
   </div>
 
   <div class="info-box">
-    <i class="fas fa-info-circle"></i>
+    <i class="fas fa-bolt"></i>
     <div class="info-box-content">
-      <h4>Bilgi</h4>
-      <p>API'ler <strong>ücretsiz</strong>. Botlar <strong>CPU/RAM kullanmaz</strong>, 7/24 çalışır. <strong>@fbxnext</strong></p>
+      <h4>Sistem Bilgisi</h4>
+      <p>API'ler <strong>ücretsiz</strong>. Botlar <strong>CPU/RAM kullanmaz</strong>, 7/24 çalışır. Hız: <strong>0.3 saniye</strong></p>
     </div>
   </div>
 
@@ -146,34 +217,23 @@ body::before{content:"";position:fixed;inset:-50%;background:radial-gradient(cir
 </div>
 
 <script>
-/* ============================================
-   BOT OLUŞTUR
-============================================ */
+/* BOT OLUŞTUR */
 async function botOlustur() {
   const inp = document.getElementById('botTokenInput');
   const btn = document.getElementById('botBtn');
   const res = document.getElementById('botResult');
   const token = inp.value.trim();
 
-  if (!token) {
-    res.className = 'result-box err';
-    res.textContent = '❌ Bot token gerekli!';
-    return;
-  }
-  if (!token.includes(':') || token.length < 30) {
-    res.className = 'result-box err';
-    res.textContent = '❌ Geçersiz token!';
-    return;
-  }
+  if (!token) { res.className='result-box err'; res.textContent='❌ Bot token gerekli!'; return; }
+  if (!token.includes(':') || token.length < 30) { res.className='result-box err'; res.textContent='❌ Geçersiz token!'; return; }
 
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Kuruluyor...';
   btn.disabled = true;
   res.className = 'result-box info';
-  res.textContent = '⏳ Bot kuruluyor, bekleyin...';
+  res.textContent = '⏳ Bot kuruluyor...';
 
   try {
-    const url = '/api/sorgu?api=botolustur&bot_token=' + encodeURIComponent(token);
-    const r = await fetch(url);
+    const r = await fetch('/api/sorgu?api=botolustur&bot_token=' + encodeURIComponent(token));
     const d = await r.json();
 
     if (d.success) {
@@ -181,9 +241,8 @@ async function botOlustur() {
       res.innerHTML = `✅ <b>BOT HAZIR!</b><br><br>
         🤖 Bot: <code>@${d.bot_username}</code><br>
         📛 İsim: ${d.bot_name}<br><br>
-        📌 <code>@${d.bot_username}</code> botuna git → <code>/start</code>`;
+        📌 <code>@${d.bot_username}</code> → <code>/start</code>`;
 
-      // localStorage'a kaydet
       let bots = JSON.parse(localStorage.getItem('logsuzlar_bots') || '[]');
       if (!bots.find(b => b.token === token)) {
         bots.push({ token, username: d.bot_username, name: d.bot_name, olusturma: new Date().toISOString() });
@@ -205,9 +264,7 @@ async function botOlustur() {
   }
 }
 
-/* ============================================
-   BOTLARIM
-============================================ */
+/* BOTLARIM */
 function botlarimGoster() {
   const el = document.getElementById('botList');
   let bots = JSON.parse(localStorage.getItem('logsuzlar_bots') || '[]');
@@ -218,7 +275,7 @@ function botlarimGoster() {
   }
 
   el.innerHTML = `
-    <div style="font-size:.7rem;color:#a78bfa;margin-bottom:10px;font-weight:600">
+    <div style="font-size:.7rem;color:#ff0055;margin-bottom:10px;font-weight:600;text-shadow:0 0 10px rgba(255,0,85,.5)">
       🤖 BOTLARIM (${bots.length})
     </div>
     ${bots.map((b, i) => `
@@ -227,20 +284,16 @@ function botlarimGoster() {
           <div class="bot-item-name">🤖 @${b.username}</div>
           <div class="bot-item-status aktif">🟢 AKTİF</div>
         </div>
-        <div class="bot-item-token">${b.token.slice(0, 20)}...</div>
+        <div class="bot-item-token">🔑 ${b.token.slice(0, 20)}...</div>
+        <div class="bot-item-info">
+          📅 Oluşturma: <span>${new Date(b.olusturma).toLocaleString('tr-TR')}</span><br>
+          📛 İsim: <span>${b.name}</span>
+        </div>
         <div class="bot-item-actions">
-          <button class="btn btn-secondary" onclick="botTestIdx(${i})">
-            <i class="fas fa-vial"></i> TEST
-          </button>
-          <button class="btn btn-warning" onclick="botDurdur(${i})">
-            <i class="fas fa-pause"></i> DURDUR
-          </button>
-          <button class="btn btn-success" onclick="botBaslat(${i})">
-            <i class="fas fa-play"></i> BAŞLAT
-          </button>
-          <button class="btn btn-danger" onclick="botSil(${i})">
-            <i class="fas fa-trash"></i> SİL
-          </button>
+          <button class="btn btn-info" onclick="botTestIdx(${i})"><i class="fas fa-vial"></i> TEST</button>
+          <button class="btn btn-warning" onclick="botDurdur(${i})"><i class="fas fa-pause"></i> DURDUR</button>
+          <button class="btn btn-success" onclick="botBaslat(${i})"><i class="fas fa-play"></i> BAŞLAT</button>
+          <button class="btn btn-danger" onclick="botSil(${i})"><i class="fas fa-trash"></i> SİL</button>
         </div>
       </div>
     `).join('')}
@@ -253,79 +306,49 @@ async function botTestIdx(i) {
   try {
     const r = await fetch('https://api.telegram.org/bot' + b.token + '/getMe');
     const d = await r.json();
-    if (d.ok) {
-      alert(`✅ Bot Aktif!\n\n@${d.result.username}\n${d.result.first_name}`);
-    } else {
-      alert('❌ Bot pasif!');
-    }
-  } catch (e) {
-    alert('❌ ' + e.message);
-  }
+    if (d.ok) alert(`✅ Bot Aktif!\n\n@${d.result.username}\n${d.result.first_name}`);
+    else alert('❌ Bot pasif!');
+  } catch (e) { alert('❌ ' + e.message); }
 }
 
 async function botDurdur(i) {
   let bots = JSON.parse(localStorage.getItem('logsuzlar_bots') || '[]');
   const b = bots[i];
   if (!confirm(`@${b.username} durdurulsun mu?`)) return;
-
   try {
     const r = await fetch('/api/sorgu?api=botdurdur&bot_token=' + encodeURIComponent(b.token));
     const d = await r.json();
-    if (d.success) {
-      alert('✅ Bot durduruldu');
-    } else {
-      alert('❌ Hata');
-    }
-  } catch (e) {
-    alert('❌ ' + e.message);
-  }
+    alert(d.success ? '✅ Bot durduruldu' : '❌ Hata');
+  } catch (e) { alert('❌ ' + e.message); }
 }
 
 async function botBaslat(i) {
   let bots = JSON.parse(localStorage.getItem('logsuzlar_bots') || '[]');
   const b = bots[i];
-
   try {
     const r = await fetch('/api/sorgu?api=botbaslat&bot_token=' + encodeURIComponent(b.token));
     const d = await r.json();
-    if (d.success) {
-      alert('✅ Bot tekrar aktif: @' + d.bot_username);
-    } else {
-      alert('❌ ' + (d.error || 'Hata'));
-    }
-  } catch (e) {
-    alert('❌ ' + e.message);
-  }
+    alert(d.success ? '✅ Bot aktif: @' + d.bot_username : '❌ ' + (d.error || 'Hata'));
+  } catch (e) { alert('❌ ' + e.message); }
 }
 
 async function botSil(i) {
   let bots = JSON.parse(localStorage.getItem('logsuzlar_bots') || '[]');
   const b = bots[i];
   if (!confirm(`@${b.username} silinsin mi?`)) return;
-
   try {
     await fetch('/api/sorgu?api=botsil&bot_token=' + encodeURIComponent(b.token));
     bots.splice(i, 1);
     localStorage.setItem('logsuzlar_bots', JSON.stringify(bots));
     botlarimGoster();
-  } catch (e) {
-    alert('❌ ' + e.message);
-  }
+  } catch (e) { alert('❌ ' + e.message); }
 }
 
-/* ============================================
-   BOT TEST (INPUT)
-============================================ */
 async function botTest() {
   const inp = document.getElementById('botTokenInput');
   const res = document.getElementById('botResult');
   const token = inp.value.trim();
-
-  if (!token) {
-    res.className = 'result-box err';
-    res.textContent = '❌ Token gerekli!';
-    return;
-  }
+  if (!token) { res.className='result-box err'; res.textContent='❌ Token gerekli!'; return; }
 
   res.className = 'result-box info';
   res.textContent = '⏳ Test ediliyor...';
@@ -333,7 +356,6 @@ async function botTest() {
   try {
     const r = await fetch('https://api.telegram.org/bot' + token + '/getMe');
     const d = await r.json();
-
     if (d.ok) {
       res.className = 'result-box ok';
       res.innerHTML = `✅ <b>TOKEN GEÇERLİ!</b><br><br>
@@ -350,25 +372,17 @@ async function botTest() {
   }
 }
 
-/* ============================================
-   API LİSTESİ
-============================================ */
+/* API LİSTESİ */
 async function yukleApiListesi() {
   const grid = document.getElementById('apiGrid');
   grid.innerHTML = '<div class="loading-text"><i class="fas fa-spinner fa-spin"></i> Yükleniyor...</div>';
 
   try {
-    const url = '/api/sorgu?api=list';
-    const r = await fetch(url);
+    const r = await fetch('/api/sorgu?api=list');
     const j = await r.json();
-
-    if (!j.success || !j.apis) {
-      grid.innerHTML = '<div class="loading-text">API listesi alınamadı.</div>';
-      return;
-    }
+    if (!j.success || !j.apis) { grid.innerHTML = '<div class="loading-text">API listesi alınamadı.</div>'; return; }
 
     grid.innerHTML = '';
-
     j.apis.forEach((api, i) => {
       const card = document.createElement('div');
       card.className = 'api-card';
@@ -376,8 +390,7 @@ async function yukleApiListesi() {
 
       let badge = 'free', badgeText = 'ÜCRETSİZ';
       if (['tcpro','adsoyadpro','ailepro','cocuk','es','kardes','dogumtililce','soyaddogumt','sulalepro','iban'].includes(api.key)) {
-        badge = 'pro';
-        badgeText = 'PRO';
+        badge = 'pro'; badgeText = 'PRO';
       }
 
       card.innerHTML = `
@@ -399,39 +412,24 @@ async function yukleApiListesi() {
   }
 }
 
-/* ============================================
-   KOPYALA
-============================================ */
 function kopyala(btn, url) {
   const orig = btn.innerHTML;
   const success = () => {
     btn.innerHTML = '<i class="fas fa-check"></i> OK';
-    btn.style.background = '#fff';
-    btn.style.color = '#000';
-    setTimeout(() => {
-      btn.innerHTML = orig;
-      btn.style.background = 'transparent';
-      btn.style.color = '#888';
-    }, 1200);
+    setTimeout(() => btn.innerHTML = orig, 1200);
   };
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(url).then(success);
   } else {
     const ta = document.createElement('textarea');
-    ta.value = url;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
+    ta.value = url; ta.style.position='fixed'; ta.style.left='-9999px';
+    document.body.appendChild(ta); ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
     success();
   }
 }
 
-/* ============================================
-   BAŞLAT
-============================================ */
 yukleApiListesi();
 botlarimGoster();
 </script>
