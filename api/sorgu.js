@@ -1,7 +1,12 @@
 /**
- * Logsuzlar Service - Vercel API + Telegram Bot (Webhook)
- * Sorgu sonuçları TXT dosyası olarak gönderilir
+ * Logsuzlar Service - Vercel API + Telegram Bot
+ * GitHub Gist ile kalıcı key ve bot saklama
+ * Çoklu bot desteği - Kapanmaz - 7/24 aktif
  */
+
+const GIST_ID = process.env.GIST_ID;
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const GIST_FILE = "keys.json";
 
 const API_MAP = {
   tc: { name: "TC Sorgu", icon: "🆔", url: "https://punisherservis.alwaysdata.net/apiservices/tc.php", params: ["tc"], demo: { tc: "11111111110" } },
@@ -27,10 +32,110 @@ const API_MAP = {
 };
 
 // ============================================
-// BELLEK
+// CACHE
 // ============================================
-const KEYS = global.__KEYS__ || (global.__KEYS__ = new Map());
-const BOTS = global.__BOTS__ || (global.__BOTS__ = new Map());
+let CACHE = null;
+let CACHE_TIME = 0;
+const CACHE_TTL = 10000;
+
+// ============================================
+// GIST OKU
+// ============================================
+async function gistOku() {
+  if (CACHE && Date.now() - CACHE_TIME < CACHE_TTL) return CACHE;
+  if (!GIST_ID) return { keys: {}, bots: {} };
+  
+  try {
+    const headers = {
+      Accept: "application/vnd.github.v3+json",
+      "User-Agent": "logsuzlar-service",
+    };
+    if (GITHUB_TOKEN) headers.Authorization = `token ${GITHUB_TOKEN}`;
+    
+    const r = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers,
+      cache: "no-store",
+    });
+    
+    if (!r.ok) return { keys: {}, bots: {} };
+    
+    const j = await r.json();
+    const content = j.files?.[GIST_FILE]?.content;
+    if (!content) return { keys: {}, bots: {} };
+    
+    const data = JSON.parse(content);
+    if (!data.keys) data.keys = {};
+    if (!data.bots) data.bots = {};
+    
+    CACHE = data;
+    CACHE_TIME = Date.now();
+    return data;
+  } catch (e) {
+    return { keys: {}, bots: {} };
+  }
+}
+
+// ============================================
+// GIST YAZ
+// ============================================
+async function gistYaz(data) {
+  if (!GIST_ID || !GITHUB_TOKEN) return false;
+  
+  try {
+    const r = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `token ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+        "User-Agent": "logsuzlar-service",
+      },
+      body: JSON.stringify({
+        files: {
+          [GIST_FILE]: {
+            content: JSON.stringify(data, null, 2),
+          },
+        },
+      }),
+    });
+    
+    if (r.ok) {
+      CACHE = data;
+      CACHE_TIME = Date.now();
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+// ============================================
+// KEY FONKSİYONLARI
+// ============================================
+function keyGenerate() {
+  const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const r = (n) => Array.from({length:n}, () => c[Math.floor(Math.random()*c.length)]).join("");
+  return `ZAMPO-${r(4)}-${r(4)}-${r(4)}`;
+}
+
+async function keyCreate() {
+  const key = keyGenerate();
+  const data = await gistOku();
+  data.keys[key] = {
+    olusturma: new Date().toISOString(),
+    botlar: [],
+  };
+  await gistYaz(data);
+  return key;
+}
+
+async function keyValid(key) {
+  if (!key) return false;
+  if (!/^ZAMPO-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(key)) return false;
+  const data = await gistOku();
+  return !!data.keys[key];
+}
 
 // ============================================
 // REKLAM TEMİZLE
@@ -56,21 +161,6 @@ function reklamTemizle(text) {
   text = text.replace(/[ \t]+/g, " ").replace(/\n{2,}/g, "\n");
   return text.trim();
 }
-
-// ============================================
-// KEY
-// ============================================
-function keyGenerate() {
-  const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const r = (n) => Array.from({length:n}, () => c[Math.floor(Math.random()*c.length)]).join("");
-  return `ZAMPO-${r(4)}-${r(4)}-${r(4)}`;
-}
-function keyCreate() {
-  const k = keyGenerate();
-  KEYS.set(k, { kullanim: 0 });
-  return k;
-}
-function keyValid(k) { return k && KEYS.has(k); }
 
 // ============================================
 // TELEGRAM HELPERS
@@ -100,68 +190,40 @@ async function tgGetMe(token) {
   } catch { return null; }
 }
 
-// ============================================
-// TXT DOSYASI GÖNDER (MULTIPART MANUEL)
-// ============================================
 async function tgSendDocument(token, chatId, txtContent, filename, caption, keyboard) {
   try {
     const boundary = "----FormBoundary" + Math.random().toString(36).substring(2);
     const encoder = new TextEncoder();
-    
     const parts = [];
     
-    // chat_id
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="chat_id"\r\n\r\n`));
-    parts.push(encoder.encode(`${chatId}\r\n`));
+    parts.push(encoder.encode(`--${boundary}\r\nContent-Disposition: form-data; name="chat_id"\r\n\r\n${chatId}\r\n`));
     
-    // caption
     if (caption) {
-      parts.push(encoder.encode(`--${boundary}\r\n`));
-      parts.push(encoder.encode(`Content-Disposition: form-data; name="caption"\r\n\r\n`));
-      parts.push(encoder.encode(`${caption}\r\n`));
-      
-      // parse_mode
-      parts.push(encoder.encode(`--${boundary}\r\n`));
-      parts.push(encoder.encode(`Content-Disposition: form-data; name="parse_mode"\r\n\r\n`));
-      parts.push(encoder.encode(`Markdown\r\n`));
+      parts.push(encoder.encode(`--${boundary}\r\nContent-Disposition: form-data; name="caption"\r\n\r\n${caption}\r\n`));
+      parts.push(encoder.encode(`--${boundary}\r\nContent-Disposition: form-data; name="parse_mode"\r\n\r\nMarkdown\r\n`));
     }
     
-    // reply_markup
     if (keyboard) {
-      parts.push(encoder.encode(`--${boundary}\r\n`));
-      parts.push(encoder.encode(`Content-Disposition: form-data; name="reply_markup"\r\n\r\n`));
-      parts.push(encoder.encode(`${JSON.stringify(keyboard)}\r\n`));
+      parts.push(encoder.encode(`--${boundary}\r\nContent-Disposition: form-data; name="reply_markup"\r\n\r\n${JSON.stringify(keyboard)}\r\n`));
     }
     
-    // document
-    parts.push(encoder.encode(`--${boundary}\r\n`));
-    parts.push(encoder.encode(`Content-Disposition: form-data; name="document"; filename="${filename}"\r\n`));
-    parts.push(encoder.encode(`Content-Type: text/plain; charset=utf-8\r\n\r\n`));
+    parts.push(encoder.encode(`--${boundary}\r\nContent-Disposition: form-data; name="document"; filename="${filename}"\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n`));
     parts.push(encoder.encode(txtContent));
     parts.push(encoder.encode(`\r\n--${boundary}--\r\n`));
     
-    // Birleştir
     let totalLen = 0;
     for (const p of parts) totalLen += p.length;
     const buf = new Uint8Array(totalLen);
     let offset = 0;
-    for (const p of parts) {
-      buf.set(p, offset);
-      offset += p.length;
-    }
+    for (const p of parts) { buf.set(p, offset); offset += p.length; }
     
     const r = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
       method: "POST",
-      headers: {
-        "Content-Type": `multipart/form-data; boundary=${boundary}`,
-      },
+      headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
       body: buf,
     });
-    
     return await r.json();
   } catch (e) {
-    console.error("tgSendDocument error:", e);
     return { ok: false, error: e.message };
   }
 }
@@ -172,7 +234,6 @@ async function tgSendDocument(token, chatId, txtContent, filename, caption, keyb
 function botMenu() {
   const entries = Object.entries(API_MAP);
   const rows = [];
-  
   for (let i = 0; i < entries.length; i += 2) {
     const row = [];
     for (let j = 0; j < 2 && i+j < entries.length; j++) {
@@ -181,21 +242,14 @@ function botMenu() {
     }
     rows.push(row);
   }
-  
   rows.push([
     { text: "🆘 Destek", url: "https://t.me/fbxnext" },
     { text: "📢 Kanal", url: "https://t.me/logsuzlarvip" },
   ]);
-  rows.push([
-    { text: "⚡ Bilgi", callback_data: "info" },
-  ]);
-  
+  rows.push([{ text: "⚡ Bilgi", callback_data: "info" }]);
   return { inline_keyboard: rows };
 }
 
-// ============================================
-// KARŞILAMA
-// ============================================
 function karsilamaMesaji() {
   return (
     `⚡ *LOGSUZLAR SORGU BOTU*\n\n` +
@@ -206,25 +260,21 @@ function karsilamaMesaji() {
     `• ⚡ Süper hızlı sorgu\n` +
     `• 📄 Sonuç TXT dosyası\n` +
     `• 🔒 Güvenli & gizli\n\n` +
-    `📋 Aşağıdan bir sorgu seç:\n` +
-    `👇`
+    `📋 Aşağıdan bir sorgu seç:\n👇`
   );
 }
 
 // ============================================
-// SORGU YAP
+// SORGU
 // ============================================
 async function sorguYap(apiKey, query) {
   const config = API_MAP[apiKey];
   if (!config) return null;
-  
   const parts = {};
   for (const p of config.params) {
     if (query[p] !== undefined && query[p] !== "") parts[p] = query[p];
   }
-  
   const url = config.url + "?" + new URLSearchParams(parts).toString();
-  
   try {
     const r = await fetch(url, {
       headers: {
@@ -249,9 +299,7 @@ async function sonucGonder(botToken, chatId, apiKey, sonuc, keyboard) {
   const config = API_MAP[apiKey];
   const zaman = new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" });
   
-  // ===== TXT İÇERİĞİ =====
-  let txt = "";
-  txt += "═══════════════════════════════════════════════\n";
+  let txt = "═══════════════════════════════════════════════\n";
   txt += `  ${config.name}\n`;
   txt += "═══════════════════════════════════════════════\n";
   txt += `📅 Tarih  : ${zaman}\n`;
@@ -264,48 +312,31 @@ async function sonucGonder(botToken, chatId, apiKey, sonuc, keyboard) {
   } else if (sonuc.error) {
     txt += `❌ HATA: ${sonuc.error}\n`;
   } else {
-    txt += "📄 TAM VERİ:\n\n";
-    txt += JSON.stringify(sonuc, null, 2);
+    txt += "📄 TAM VERİ:\n\n" + JSON.stringify(sonuc, null, 2);
   }
   
   txt += "\n\n═══════════════════════════════════════════════\n";
-  txt += "✅ Logsuzlar Service\n";
-  txt += "📢 @logsuzlarvip\n";
-  txt += "🆘 @fbxnext\n";
+  txt += "✅ Logsuzlar Service\n📢 @logsuzlarvip\n🆘 @fbxnext\n";
   txt += "═══════════════════════════════════════════════\n";
   
-  // ===== ÖZET MESAJ =====
   let ozet = `✅ *${config.name}*\n\n`;
-  
-  let kayitSayisi = 0;
-  let alanSayisi = 0;
-  
+  let kayitSayisi = 0, alanSayisi = 0;
   if (sonuc && typeof sonuc === "object") {
-    const keys = Object.keys(sonuc).filter(k => 
-      !["auth","auth_alt","developer","version","sürüm","surum","author","yapimci"].includes(k)
-    );
-    alanSayisi = keys.length;
-    
+    alanSayisi = Object.keys(sonuc).filter(k => !["auth","auth_alt","developer","version","sürüm","surum","author","yapimci"].includes(k)).length;
     const veri = sonuc.data || sonuc.veri || sonuc.sonuc || sonuc.result;
     if (Array.isArray(veri)) kayitSayisi = veri.length;
   }
-  
   ozet += `📊 Alan: \`${alanSayisi}\`\n`;
   if (kayitSayisi > 0) ozet += `📋 Kayıt: \`${kayitSayisi}\`\n`;
   ozet += `\n📁 *Tam sonuç TXT dosyasında* 👇`;
   
-  // ===== TXT GÖNDER =====
   const fileName = `${apiKey}_${Date.now()}.txt`;
   const r = await tgSendDocument(botToken, chatId, txt, fileName, ozet, keyboard);
   
   if (!r.ok) {
-    console.error("Dosya gönderilemedi:", r);
-    // Fallback: metin olarak gönder
-    let fallback = txt.slice(0, 3800);
-    if (txt.length > 3800) fallback += "\n\n_...kısaltıldı_";
-    await tgSend(botToken, chatId, fallback, keyboard);
+    let fb = txt.slice(0, 3800);
+    await tgSend(botToken, chatId, fb, keyboard);
   }
-  
   return r.ok;
 }
 
@@ -332,13 +363,8 @@ export default async function handler(req, res) {
       const update = body;
       const botToken = req.query.bot;
       
-      if (!botToken || !BOTS.has(botToken)) {
-        return res.status(200).json({ ok: true });
-      }
-      
-      const botData = BOTS.get(botToken);
+      if (!botToken) return res.status(200).json({ ok: true });
 
-      // ===== MESAJ =====
       if (update.message) {
         const chatId = update.message.chat.id;
         const text = (update.message.text || "").trim();
@@ -349,32 +375,23 @@ export default async function handler(req, res) {
         }
 
         if (text === "/help") {
-          await tgSend(botToken, chatId,
-            `🆘 *YARDIM*\n\n` +
-            `▪️ Sorgu için butona bas\n` +
-            `▪️ Bilgi gir\n` +
-            `▪️ Sonuç TXT dosyası olarak gelir\n\n` +
-            `📞 Destek: @fbxnext`,
-            botMenu()
-          );
+          await tgSend(botToken, chatId, `🆘 *YARDIM*\n\n▪️ Sorgu için butona bas\n▪️ Bilgi gir\n▪️ TXT dosyası gelir\n\n📞 @fbxnext`, botMenu());
           return res.status(200).json({ ok: true });
         }
 
-        const waitingKey = botData.waitingFor;
-        if (waitingKey && API_MAP[waitingKey]) {
-          const config = API_MAP[waitingKey];
+        const pendingKey = global.__PENDING__ || (global.__PENDING__ = new Map());
+        const waitingApi = pendingKey.get(`${botToken}_${chatId}`);
+        
+        if (waitingApi && API_MAP[waitingApi]) {
+          const config = API_MAP[waitingApi];
           const parts = text.split(/\s+/);
           const query = {};
           config.params.forEach((p, i) => { if (parts[i]) query[p] = parts[i]; });
 
-          botData.waitingFor = null;
-          BOTS.set(botToken, botData);
-
+          pendingKey.delete(`${botToken}_${chatId}`);
           await tgSend(botToken, chatId, `⏳ *Sorgulanıyor...*`);
-          
-          const sonuc = await sorguYap(waitingKey, query);
-          await sonucGonder(botToken, chatId, waitingKey, sonuc, botMenu());
-          
+          const sonuc = await sorguYap(waitingApi, query);
+          await sonucGonder(botToken, chatId, waitingApi, sonuc, botMenu());
           return res.status(200).json({ ok: true });
         }
 
@@ -382,7 +399,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true });
       }
 
-      // ===== CALLBACK =====
       if (update.callback_query) {
         const cb = update.callback_query;
         const chatId = cb.message.chat.id;
@@ -392,16 +408,7 @@ export default async function handler(req, res) {
 
         if (data === "info") {
           await tgSend(botToken, chatId,
-            `⚡ *SİSTEM BİLGİSİ*\n\n` +
-            `🖥️ *CPU:* Kullanmaz\n` +
-            `💾 *RAM:* Kullanmaz\n` +
-            `🌐 *Çalışma:* 7/24 aktif\n` +
-            `📊 *Limit:* Sınırsız\n` +
-            `⚡ *Hız:* Süper hızlı\n` +
-            `📄 *Sonuç:* TXT dosyası\n` +
-            `🔒 *Güvenlik:* Uçtan uca\n\n` +
-            `🚀 Webhook tabanlı sistem —\n` +
-            `Sadece sorgu gelince çalışır.`,
+            `⚡ *SİSTEM BİLGİSİ*\n\n🖥️ *CPU:* Kullanmaz\n💾 *RAM:* Kullanmaz\n🌐 *Çalışma:* 7/24\n📊 *Limit:* Sınırsız\n⚡ *Hız:* Süper hızlı\n📄 *Sonuç:* TXT\n🔒 *Güvenlik:* Uçtan uca\n\n🚀 Webhook tabanlı sistem.`,
             botMenu()
           );
           return res.status(200).json({ ok: true });
@@ -412,9 +419,8 @@ export default async function handler(req, res) {
           const config = API_MAP[apiKey];
           if (!config) return res.status(200).json({ ok: true });
 
-          botData.waitingFor = apiKey;
-          botData.chat_id = chatId;
-          BOTS.set(botToken, botData);
+          const pendingKey = global.__PENDING__ || (global.__PENDING__ = new Map());
+          pendingKey.set(`${botToken}_${chatId}`, apiKey);
 
           const paramList = config.params.map(p => `• \`${p}\``).join("\n");
           const ornek = Object.values(config.demo).join(" ");
@@ -423,14 +429,11 @@ export default async function handler(req, res) {
             `${config.icon} *${config.name}*\n\n📝 *Gönderilecek:*\n${paramList}\n\n📌 *Örnek:*\n\`${ornek}\``
           );
         }
-
         return res.status(200).json({ ok: true });
       }
 
       return res.status(200).json({ ok: true });
-
     } catch (e) {
-      console.error("Webhook error:", e);
       return res.status(200).json({ ok: true });
     }
   }
@@ -442,11 +445,13 @@ export default async function handler(req, res) {
   const userKey = req.query.key;
 
   if (apiKey === "keyolustur") {
-    return res.status(200).json({ success: true, key: keyCreate() });
+    const k = await keyCreate();
+    return res.status(200).json({ success: true, key: k });
   }
 
   if (apiKey === "keykontrol") {
-    return res.status(200).json({ success: true, gecerli: keyValid(userKey) });
+    const gecerli = await keyValid(userKey);
+    return res.status(200).json({ success: true, gecerli });
   }
 
   if (apiKey === "botolustur") {
@@ -454,16 +459,34 @@ export default async function handler(req, res) {
     const k = req.query.key;
 
     if (!botToken) return res.status(400).json({ success: false, error: "Bot token gerekli" });
-    if (!keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz API key" });
+    if (!await keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz API key" });
 
     const info = await tgGetMe(botToken);
     if (!info) return res.status(400).json({ success: false, error: "Geçersiz bot token" });
 
     const webhookUrl = `${origin}/api/sorgu?bot=${botToken}`;
-    const wh = await tgApi(botToken, "setWebhook", { url: webhookUrl });
-    if (!wh.ok) return res.status(400).json({ success: false, error: "Webhook kurulamadı: " + (wh.description||"") });
+    const wh = await tgApi(botToken, "setWebhook", { 
+      url: webhookUrl, 
+      allowed_updates: ["message", "callback_query"] 
+    });
+    if (!wh.ok) return res.status(400).json({ success: false, error: "Webhook kurulamadı" });
 
-    BOTS.set(botToken, { key: k, name: info.username, chat_id: null, waitingFor: null });
+    const data = await gistOku();
+    data.bots[botToken] = {
+      key: k,
+      username: info.username,
+      bot_name: info.first_name,
+      olusturma: new Date().toISOString(),
+      aktif: true,
+    };
+    
+    if (!data.keys[k]) data.keys[k] = { olusturma: new Date().toISOString(), botlar: [] };
+    if (!data.keys[k].botlar) data.keys[k].botlar = [];
+    if (!data.keys[k].botlar.includes(botToken)) {
+      data.keys[k].botlar.push(botToken);
+    }
+    
+    await gistYaz(data);
 
     return res.status(200).json({
       success: true,
@@ -471,6 +494,81 @@ export default async function handler(req, res) {
       bot_name: info.first_name,
       message: `Bot hazır! @${info.username} → /start`,
     });
+  }
+
+  if (apiKey === "botdurdur") {
+    const botToken = req.query.bot_token;
+    const k = req.query.key;
+    if (!await keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz key" });
+    const r = await tgApi(botToken, "deleteWebhook", {});
+    
+    const data = await gistOku();
+    if (data.bots[botToken]) {
+      data.bots[botToken].aktif = false;
+      await gistYaz(data);
+    }
+    
+    return res.status(200).json({ success: r.ok, message: r.ok ? "Bot durduruldu" : "Hata" });
+  }
+
+  if (apiKey === "botbaslat") {
+    const botToken = req.query.bot_token;
+    const k = req.query.key;
+    if (!await keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz key" });
+    const info = await tgGetMe(botToken);
+    if (!info) return res.status(400).json({ success: false, error: "Geçersiz bot token" });
+    const webhookUrl = `${origin}/api/sorgu?bot=${botToken}`;
+    const wh = await tgApi(botToken, "setWebhook", { 
+      url: webhookUrl, 
+      allowed_updates: ["message", "callback_query"] 
+    });
+    
+    const data = await gistOku();
+    if (data.bots[botToken]) {
+      data.bots[botToken].aktif = true;
+      await gistYaz(data);
+    }
+    
+    return res.status(200).json({ success: wh.ok, bot_username: info.username });
+  }
+
+  if (apiKey === "botsil") {
+    const botToken = req.query.bot_token;
+    const k = req.query.key;
+    if (!await keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz key" });
+    try { await tgApi(botToken, "deleteWebhook", {}); } catch {}
+    
+    const data = await gistOku();
+    delete data.bots[botToken];
+    if (data.keys[k] && data.keys[k].botlar) {
+      data.keys[k].botlar = data.keys[k].botlar.filter(t => t !== botToken);
+    }
+    await gistYaz(data);
+    
+    return res.status(200).json({ success: true, message: "Bot silindi" });
+  }
+
+  if (apiKey === "botlarim") {
+    const k = req.query.key;
+    if (!await keyValid(k)) return res.status(401).json({ success: false, error: "Geçersiz key" });
+    
+    const data = await gistOku();
+    const botlar = [];
+    
+    for (const [token, b] of Object.entries(data.bots || {})) {
+      if (b.key === k) {
+        botlar.push({
+          token_kisa: token.slice(0, 15) + "...",
+          token_tam: token,
+          username: b.username,
+          name: b.bot_name,
+          olusturma: b.olusturma,
+          aktif: b.aktif,
+        });
+      }
+    }
+    
+    return res.status(200).json({ success: true, toplam: botlar.length, botlar });
   }
 
   if (apiKey === "list") {
@@ -488,7 +586,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, error: "Geçersiz API", kullanilabilir: Object.keys(API_MAP) });
   }
 
-  if (!keyValid(userKey)) {
+  if (!await keyValid(userKey)) {
     return res.status(401).json({ success: false, error: "Geçersiz API key" });
   }
 
