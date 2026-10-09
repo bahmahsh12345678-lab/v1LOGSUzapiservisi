@@ -4,7 +4,7 @@
  */
 
 const SABIT_KEY = "logsuzlaricu2027pro";
-const PROD_URL = "https://infolanmamsorguapileri.vercel.app";
+const PROD_URL = "https://infolanmampompasorguapileri.vercel.app";
 const BOT_KEYS = global.__BOT_KEYS__ || (global.__BOT_KEYS__ = new Map());
 const CACHE = global.__CACHE__ || (global.__CACHE__ = new Map());
 const CACHE_TTL = 10 * 60 * 1000; // 10 dakika
